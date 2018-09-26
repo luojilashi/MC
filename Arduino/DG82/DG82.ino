@@ -1,9 +1,9 @@
 // Visual Micro is in vMicro>General>Tutorial Mode
 // 
 /*
-    Name:       DG82.ino
-    Created:	2018/7/21 23:49:16
-    Author:     DESKTOP-VSGKPOG\luoji
+Name:       DG82.ino
+Created:  2018/7/21 23:49:16
+Author:     DESKTOP-VSGKPOG\luoji
 */
 
 // Define User Types below here or use a .h file
@@ -27,38 +27,38 @@
 #include <Servo.h>    //Servo.
 
 
-#define LOW_GRADE_1		750
-#define LOW_GRADE_2		1150
-#define MID_GRADE_1		1400
-#define MID_GRADE_2		1600
-#define HIGH_GRADE_1	1850
-#define HIGH_GRADE_2	2250
-#define TIME_OUT		25000L
+#define LOW_GRADE_1   750
+#define LOW_GRADE_2   1150
+#define MID_GRADE_1   1400
+#define MID_GRADE_2   1600
+#define HIGH_GRADE_1  1850
+#define HIGH_GRADE_2  2250
+#define TIME_OUT    25000L
 
-Servo servoFront;     //÷˜≈⁄
-const int poutGun = 10;//÷˜≈⁄∂Êª˙
-const int songControl = 3;//…˘“Ù–≈∫≈
-const int gunControl = 6;//÷˜≈⁄–≈∫≈
+Servo servoFront;     //‰∏ªÁÇÆ
+const int poutGun = 10;//‰∏ªÁÇÆËàµÊú∫
+const int songControl = 5;//Â£∞Èü≥‰ø°Âè∑
+const int gunControl = 6;//‰∏ªÁÇÆ‰ø°Âè∑
 unsigned long checkGunTime = 0;
 unsigned long acTime = 0;
-int gunState = 0;//÷˜≈⁄◊¥Ã¨ 0 ªÿ÷– 1 ◊Û 2 ”“ 3 Õ£
-int soundState = 0;//…˘“Ù◊¥Ã¨ 0 ... 1 ∆˚µ— 2 ÀÊª˙ 3 Õ£
-unsigned long control = 0;	//øÿ÷∆–≈∫≈
+int gunState = 0;//‰∏ªÁÇÆÁä∂ÊÄÅ 0 Âõû‰∏≠ 1 Â∑¶ 2 Âè≥ 3 ÂÅú
+int soundState = 0;//Â£∞Èü≥Áä∂ÊÄÅ 0 ... 1 Ê±ΩÁ¨õ 2 ÈöèÊú∫ 3 ÂÅú
+unsigned long control = 0;  //ÊéßÂà∂‰ø°Âè∑
 int gunpos = 1500;
 
 void setup()
 {
-	Serial.begin(9600);//…Ë÷√≤®Ãÿ¬ 
+	Serial.begin(9600);//ËÆæÁΩÆÊ≥¢ÁâπÁéá
 	mp3_set_serial(Serial);    //set Serial for DFPlayer-mini mp3 module
 	mp3_set_volume(25);
 
-	pinMode(songControl, INPUT);//…˘“Ù
+	pinMode(songControl, INPUT);//Â£∞Èü≥
 	pinMode(gunControl, INPUT);
-	servoFront.attach(poutGun);		//÷˜≈⁄
-	servoFront.writeMicroseconds(gunpos);//≥ı ºªØ
+	servoFront.attach(poutGun);   //‰∏ªÁÇÆ
+	servoFront.writeMicroseconds(gunpos);//ÂàùÂßãÂåñ
 
 	delay(5);
-	control = pulseIn(gunControl, HIGH, TIME_OUT);
+	control = pulseIn(gunControl, HIGH);
 	if (!control)
 		gunState = -1;
 
@@ -79,7 +79,7 @@ void loop()
 		time = 0;
 	else
 		delay(time);
-		
+
 	acTime = millis();
 
 	if (gunState != -1)
@@ -88,12 +88,30 @@ void loop()
 
 		HandleGun();
 	}
-	
+	else
+	{
+
+		control = pulseIn(gunControl, HIGH, TIME_OUT);
+		if (!control)
+			gunState = -1;
+		else
+			gunState = 0;
+
+	}
+
 	if (soundState != -1)
 	{
 		getSoundStart();
 
 		soundState = setSong(soundState);
+	}
+	else
+	{
+		control = pulseIn(songControl, HIGH, TIME_OUT);
+		if (!control)
+			soundState = -1;
+		else
+			soundState = 0;
 	}
 }
 
@@ -105,22 +123,22 @@ int setSong(int st)
 	switch (st & 0X0F)
 	{
 	case 0://...
-		   //Serial.println("setSong...");
+	//Serial.println("setSong...");
 		break;
-	case 1://1 ∆˚µ—
-		   //Serial.println("setSong 1");
+	case 1://1 Ê±ΩÁ¨õ
+	//Serial.println("setSong 1");
 		mp3_play(2);
 		delay(200);
 		mp3_single_loop(true);
 		break;
-	case 2://ÀÊª˙
-		   //Serial.println("setSong 2");
+	case 2://ÈöèÊú∫
+	//Serial.println("setSong 2");
 		mp3_next();
 		delay(200);
 		mp3_single_loop(false);
 		break;
-	case 3://Õ£
-		   //Serial.println("setSong 3");
+	case 3://ÂÅú
+	//Serial.println("setSong 3");
 		mp3_stop();
 		break;
 	default:
@@ -134,13 +152,13 @@ int setSong(int st)
 void getGunStart()
 {
 
-	//÷˜≈⁄
-	//0 ªÿ÷– 1 ◊Û◊™ 2 ”“◊™ 3 Õ£
+	//‰∏ªÁÇÆ
+	//0 Âõû‰∏≠ 1 Â∑¶ËΩ¨ 2 Âè≥ËΩ¨ 3 ÂÅú
 	//delay(4);
 	control = pulseIn(gunControl, HIGH);
 	if (control > LOW_GRADE_1 && control < LOW_GRADE_2)//900 - 1150
 	{
-		// ±º‰º«¬º
+		//Êó∂Èó¥ËÆ∞ÂΩï
 		if (gunState != 1)
 			checkGunTime = millis();
 
@@ -148,22 +166,22 @@ void getGunStart()
 	}
 	else if (control > MID_GRADE_1 && control < MID_GRADE_2)
 	{
-		//÷–/Õ£
+		//‰∏≠/ÂÅú
 		if (gunState != 3 && gunState != 0)
 		{
-			//÷–
-			//¥Û”⁄500ms Œ™Õ£
+			//‰∏≠
+			//Â§ß‰∫é500ms ‰∏∫ÂÅú
 			if ((millis() - checkGunTime) > 200)
 				gunState = 3;
 			else
 				gunState = 0;
-			// ±º‰º«¬º
+			//Êó∂Èó¥ËÆ∞ÂΩï
 			checkGunTime = millis();
 		}
 	}
 	else if (control > HIGH_GRADE_1 && control < HIGH_GRADE_2)
 	{
-		//◊Û◊™
+		//Â∑¶ËΩ¨
 		if (gunState != 2)
 			checkGunTime = millis();
 
@@ -184,8 +202,8 @@ void getSoundStart()
 	//delay(4);
 	control = pulseIn(songControl, HIGH);
 
-	//…˘“Ù–≈∫≈
-	//◊¥Ã¨ 0 ... 1 ∆˚µ— 2 ÀÊª˙ 3 Õ£
+	//Â£∞Èü≥‰ø°Âè∑
+	//Áä∂ÊÄÅ 0 ... 1 Ê±ΩÁ¨õ 2 ÈöèÊú∫ 3 ÂÅú
 	if ((soundState & 0XF0) != 0X10 && control > LOW_GRADE_1 && control < LOW_GRADE_2) //900 - 1150
 	{
 		soundState = 0X11;
@@ -211,10 +229,10 @@ void getSoundStart()
 void HandleGun()
 {
 
-	//‘⁄∑¢…‰◊¥Ã¨œ¬Œﬁ–ß
+	//Âú®ÂèëÂ∞ÑÁä∂ÊÄÅ‰∏ãÊó†Êïà
 	switch (gunState)
 	{
-	case 0://ªÿ÷–
+	case 0://Âõû‰∏≠
 	{
 		if (gunpos > 1510)
 		{
@@ -240,7 +258,7 @@ void HandleGun()
 		}
 		break;
 	}
-	case 1://◊Û◊™
+	case 1://Â∑¶ËΩ¨
 	{
 		if (gunpos >= 2400)
 		{
@@ -257,7 +275,7 @@ void HandleGun()
 		}
 		break;
 	}
-	case 2://”“◊™
+	case 2://Âè≥ËΩ¨
 	{
 		if (gunpos <= 600)
 		{
@@ -274,12 +292,13 @@ void HandleGun()
 		}
 		break;
 	}
-	case 3://Õ£
+	case 3://ÂÅú
 		break;
-	case -1://≤ª∂Ø
+	case -1://‰∏çÂä®
 		break;
 	default:
 		servoFront.writeMicroseconds(1500);
 		break;
 	}
 }
+
