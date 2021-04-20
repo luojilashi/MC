@@ -34,6 +34,7 @@ Author:     MSI\MingCH
 #define AIV		0X8
 
 Servo servoFront;     //主炮
+Servo myservo;
 const int poutSignal = 8;//舱门舵机
 const int poutGun = 11;//主炮舵机
 const int pinControl = 9;//控制信号
@@ -230,27 +231,26 @@ int setSong(int st)
 {
 	if (controlState > 0 && !bProtect)
 		st =  0;
-
-	Serial.println(st & 0X0F);
+	
 	switch (st & 0X0F)
 	{
 	case 0://...
-		   //Serial.println("setSong...");
+		   Serial.println("setSong...");
 		break;
 	case 1://1 汽笛
-		   //Serial.println("setSong 1");
+		   Serial.println("setSong 1");
 		mp3_play(2);
-		delay(200);
-		mp3_single_loop(true);
+		delay(50);
+		//mp3_single_loop(true);
 		break;
 	case 2://随机
-		   //Serial.println("setSong 2");
+		   Serial.println("setSong 2");
 		mp3_next();
-		delay(200);
-		mp3_single_loop(false);
+		delay(50);
+		//mp3_single_loop(false);
 		break;
 	case 3://停
-		   //Serial.println("setSong 3");
+		   Serial.println("setSong 3");
 		mp3_stop();
 		break;
 	default:

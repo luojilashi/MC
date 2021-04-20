@@ -1,9 +1,9 @@
 // Visual Micro is in vMicro>General>Tutorial Mode
 // 
 /*
-    Name:       water.ino
-    Created:	2018/9/19 21:58:21
-    Author:     DESKTOP-VSGKPOG\luoji
+Name:       water.ino
+Created:  2018/9/19 21:58:21
+Author:     DESKTOP-VSGKPOG\luoji
 */
 
 // Define User Types below here or use a .h file
@@ -16,175 +16,239 @@
 
 // Define Functions below here or use other .ino or cpp files
 //
-#include <Servo.h>    // ÉùÃ÷µ÷ÓÃServo.h¿â
-Servo myservo;        // ´´½¨Ò»¸ö¶æ»ú¶ÔÏó
-#define MID_GRADE		1500
-#define LOW_GRADE_1		900
-#define LOW_GRADE_2		1150
-#define MID_GRADE_1		1400
-#define MID_GRADE_2		1600
-#define HIGH_GRADE_1	1900
-#define HIGH_GRADE_2	2100
-int checkTime = 600;
+#include <Servo.h>    // å£°æ˜Žè°ƒç”¨Servo.håº“
+#define MAX_DEPTH 300
+#define DEF_DEPT_VALUE 250
+#define MID_GRADE   1500
+#define LOW_GRADE_1   900
+#define LOW_GRADE_2   1150
+#define MID_GRADE_1   1400
+#define MID_GRADE_2   1600
+#define HIGH_GRADE_1  1900
+#define HIGH_GRADE_2  2100
+Servo myservo;        // åˆ›å»ºä¸€ä¸ªèˆµæœºå¯¹è±¡
+
 unsigned long checkFullTime = 0;
 unsigned long checkEmptyTime = 0;
-const int intControl = 5;//ÉùÒôÐÅºÅ
-const int outControl = 6;//Ö÷ÅÚÐÅºÅ
-int fullState = 0;
-int emptyState = 0;
+const unsigned char intControl = 3;//æŽ§åˆ¶
+const unsigned char outFull = 8;// æ»¡æ°´
+const unsigned char outEmpty = 7;// ç©ºæ°´
+const unsigned char lowV = 6;// ä½Žç”µåŽ‹ 
+const unsigned char outControl = 10;//æ°´æ³µ
+int checkFullOutTime = 50;
+int checkEmptyOutTime = 800;
+int checkV = 75;
+int checkVLow = 130;
+unsigned char m_fullState = 0;
+unsigned char m_emptyState = 0;
+bool isDepthLow = false;
+bool isVoltageLow = false;
+bool isDanger = false;
+double DeptTemp = 0;
 // The setup() function runs once each time the micro-controller starts
 void setup()
 {
-	Serial.begin(9600);
-	pinMode(intControl, INPUT);
-	myservo.attach(outControl);
-	myservo.writeMicroseconds(MID_GRADE);
-	checkFullTime = millis();
-	checkEmptyTime = millis();
+  Serial.begin(9600);
+  pinMode(intControl, INPUT);
+  pinMode(outFull, OUTPUT);
+  pinMode(outEmpty, OUTPUT);
+  pinMode(lowV, OUTPUT);
+  digitalWrite(outFull, LOW);
+  digitalWrite(outEmpty, LOW);
+  digitalWrite(lowV, LOW);
+  myservo.attach(outControl);
+  myservo.writeMicroseconds(MID_GRADE);
+  checkFullTime = millis();
+  checkEmptyTime = millis();
+  DeptTemp = double(DEF_DEPT_VALUE-160) / 1024;
 }
 
 // Add the main program code into the continuous loop() function
 void loop()
 {
-	int cState = getState();
-	switch (cState)
-	{
-	case 1://ÉÏ¸¡ ÅÅË®
-		if (getWaterFull())
-			setPump();
-		else
-			setPump(cState);
-		break;
-	case 2://ÏÂÇ± ½øË® 
-		if (getWaterEmpty())
-			setPump();
-		else
-			setPump(cState);
-		break;
-	default:
-		setPump();
-		break;
-	}
-	setPump(1);
+  isVoltageLow = analogRead(A0) < 690;
+  isDepthLow = false;//analogRead(A1) > MAX_DEPTH;
+  isDanger = isDanger || isVoltageLow || isDepthLow;
 
-	delay(5);
+  int cState = getState();
+  //Serial.println(DeptTemp);
+  getWaterFull();
+  getWaterEmpty();
+
+  digitalWrite(outFull, m_fullState);
+  digitalWrite(outEmpty, m_emptyState);
+  
+  // TODO
+  isDanger = false;
+  if (isDanger)
+  {
+    isDanger = isVoltageLow|| (analogRead(A1) < 160);
+    cState = 4;
+  }
+  //else if(analogRead(A1)>(DeptTemp*analogRead(A4)+160))
+    //cState = 3;
+
+  digitalWrite(lowV, isDanger || cState ==3 && millis() / 1000 % 2);
+  //cState = 0;
+  switch (cState)
+  {
+  case 1://ä¸Šæµ® æŽ’æ°´
+    drainOffWater();
+    //Serial.println("UP");
+    break;
+  case 2://ä¸‹æ½œ è¿›æ°´ 
+    inletWater();
+    //Serial.println("DOWN");
+    break;
+  case 3:
+    setPump(0);
+    break;
+  case 4:
+    // è¶…è¿‡æ·±åº¦
+    // ä½Žç”µåŽ‹ä¸Šæµ®
+    drainOffWater();
+    break;
+  default:
+    setPump(0);
+    break;
+  }
+
+  delay(5);
 }
 
 int getState()
 {
-	delay(5);
-	int control = pulseIn(intControl, HIGH);
-	if (control > LOW_GRADE_1 && control < LOW_GRADE_2)
-	{
-		//ÉÏ¸¡ ÅÅË®
-		return 1;
-	}
-	else if (control > MID_GRADE_1 && control < MID_GRADE_2)
-	{
-		return 0;
-	}
-	else if (control > HIGH_GRADE_1 && control < HIGH_GRADE_2)
-	{
-		//ÏÂÇ± ½øË® 
-		return 2;
-	}
-	else
-	{
-		return 0;
-	}
+  int state = 0;
+  delay(5);
+  int control = pulseIn(intControl, HIGH);
+
+  if (control > LOW_GRADE_1 && control < LOW_GRADE_2)
+  {
+    //ä¸Šæµ® æŽ’æ°´
+    state = 1;
+  }
+  else if (control > MID_GRADE_1 && control < MID_GRADE_2)
+  {
+    state = 0;
+  }
+  else if (control > HIGH_GRADE_1 && control < HIGH_GRADE_2)
+  {
+    //ä¸‹æ½œ è¿›æ°´ 
+    state = 2;
+  }
+
+  return state;
 }
 
-void setPump(int pumpState = 0)
+void setPump(int pumpState)
 {
-	switch (pumpState)
-	{
-	case 0:
-		myservo.writeMicroseconds(MID_GRADE);
-		break;
-	case 1://ÅÅË®
-		myservo.writeMicroseconds(LOW_GRADE_2);
-		break;
-	case 2://½øË®
-		myservo.writeMicroseconds(HIGH_GRADE_1);
-		delay(10);
-		myservo.writeMicroseconds(MID_GRADE);
-		delay(10);
-		myservo.writeMicroseconds(HIGH_GRADE_1);
-		break;
-	default:
-		myservo.writeMicroseconds(MID_GRADE);
-		break;
-	}
+  switch (pumpState)
+  {
+  case 0:
+    myservo.writeMicroseconds(MID_GRADE);
+    break;
+  case 1://æŽ’æ°´
+    myservo.writeMicroseconds(HIGH_GRADE_1);
+    break;
+  case 2://è¿›æ°´
+    myservo.writeMicroseconds(LOW_GRADE_2);
+    break;
+  default:
+    myservo.writeMicroseconds(MID_GRADE);
+    return;
+  }
+
+  digitalWrite(outEmpty,m_emptyState|| !m_fullState && pumpState !=0 && millis() / 1000 % 2);
+  
 }
 
-int getWaterFull()
+void getWaterFull()
 {
-	auto mills = millis();
-	int hi = analogRead(A0);
-
-	switch (fullState)
-	{
-	case 1://full
-		if (hi < 200 && (mills - checkFullTime)>checkTime)
-		{
-			fullState=0;
-			checkFullTime = mills;
-		}
-		else if (hi > 200)
-		{
-			checkFullTime = mills;
-		}
-		break;
-	case 0:
-		if (hi > 200 && (mills - checkFullTime)>checkTime)
-		{
-			fullState = 1;
-			checkFullTime = mills;
-		}
-		else if (hi < 200)
-		{
-			checkFullTime = mills;
-		}
-		break;
-	default:
-		break;
-	}
-
-	return fullState;
+  auto mills = millis();
+  int hi = analogRead(A2);
+  //Serial.println(m_fullState);
+  switch (m_fullState)
+  {
+  case 1://full
+    if (hi < checkV && (mills - checkFullTime)>checkFullOutTime)
+    {
+      m_fullState = 0;
+      checkFullTime = mills;
+    }
+    else if (hi >= checkV)
+    {
+      checkFullTime = mills;
+    }
+    break;
+  case 0:
+    if (hi >= checkV && (mills - checkFullTime)>checkFullOutTime)
+    {
+      m_fullState = 1;
+      checkFullTime = mills;
+    }
+    else if (hi < checkV)
+    {
+      checkFullTime = mills;
+    }
+    break;
+  default:
+    break;
+  }
+  //Serial.print("fullState");
+  //Serial.println(m_fullState);
 }
 
-int getWaterEmpty()
+void getWaterEmpty()
 {
-	auto mills = millis();
-	int hi = analogRead(A1);
+  auto mills = millis();
+  int he = analogRead(A3);
+  //Serial.println(he);
 
-	switch (emptyState)
-	{
-	case 1://empty
-		if (hi < 200 && (mills - checkEmptyTime)>checkTime)
-		{
-			emptyState = 0;
-			checkEmptyTime = mills;
-		}
-		else if (hi > 200)
-		{
-			checkEmptyTime = mills;
-		}
-		break;
-	case 0:
-		if (hi > 200 && (mills - checkEmptyTime)>checkTime)
-		{
-			emptyState = 1;
-			checkEmptyTime = mills;
-		}
-		else if (hi > 200)
-		{
-			checkEmptyTime = mills;
-		}
-		break;
-	default:
-		break;
-	}
+  switch (m_emptyState)
+  {
+  case 0:
+    if (he < checkVLow && (mills - checkEmptyTime)>checkEmptyOutTime)
+    {
+      m_emptyState = 1;
+      checkEmptyTime = mills;
+    }
+    else if (he >= checkVLow)
+    {
+      checkEmptyTime = mills;
+    }
+    break;
+  case 1://empty
+    if (he >= checkVLow && (mills - checkEmptyTime)>checkEmptyOutTime)
+    {
+      m_emptyState = 0;
+      checkEmptyTime = mills;
+    }
+    else if (he < checkVLow)
+    {
+      checkEmptyTime = mills;
+    }
+    break;
+  default:
+    break;
+  }
 
-	return emptyState;
+  //Serial.print("emptyState");
+  //Serial.println(m_emptyState);
 }
+
+void drainOffWater()
+{
+  if (m_emptyState)
+    setPump(0);
+  else
+    setPump(1);
+}
+
+void inletWater()
+{
+  if (m_fullState)
+    setPump(0);
+  else
+    setPump(2);
+}
+
