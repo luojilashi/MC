@@ -155,9 +155,9 @@ void loop()
 {
 	// loadStart();
 	Load_Node_Data();
-	Serial.println(ipos);
+	// Serial.println(micros() - checkTime[2]);
 	// checkTime[2] = micros();
-	// return;
+	//  return;
 	switch (start)
 	{
 	case 0: //左
@@ -179,26 +179,29 @@ void loop()
 void controlServoFront(float Fpos)
 {
 	//前有效0-135 225-360
+	int pos = POS_MAX;
 	if (Fpos >= 0 && Fpos <= 1350)
 	{
 		// Serial.println(map(Fpos, 0, 1350, POS_MILL, POS_MIN));
 		// 0-135
 		//右转
-		controlServo(0, map(Fpos, 0, 1350, POS_MILL, POS_MIN));
-		controlServo(4, map(Fpos, 0, 1350, POS_MILL, POS_MIN));
+		pos = map(Fpos, 0, 1350, POS_MILL, POS_MIN);
+		controlServo(0, pos);
+		controlServo(4, pos);
 	}
 	else if (Fpos >= 2250 && Fpos <= 3600)
 	{
 		// 225-360
 		//左转
-		controlServo(0, map(Fpos, 2250, 3600, POS_MAX, POS_MILL));
-		controlServo(0, map(Fpos, 2250, 3600, POS_MAX, POS_MILL));
+		pos = map(Fpos, 2250, 3600, POS_MAX, POS_MILL);
+		controlServo(0, pos);
+		controlServo(4, pos);
 	}
 	else if (Fpos > 1800 && Fpos < 2250)
 	{
 		//左死区
-		controlServo(0, POS_MAX);
-		controlServo(4, POS_MAX);
+		controlServo(0, pos);
+		controlServo(4, pos);
 	}
 	else if (Fpos > 1350 && Fpos < 1800)
 	{
@@ -211,6 +214,14 @@ void controlServoFront(float Fpos)
 		//无效
 		;
 	}
+	// controlServo(1, pos);
+	// controlServo(2, pos);
+	// controlServo(3, pos);
+	// controlServo(5, pos);
+	// controlServo(6, pos);
+	// controlServo(7, pos);
+	// controlServo(9, pos);
+	// controlServo(10, pos);
 }
 
 void controlServoBack(float Bpos)
@@ -226,7 +237,7 @@ void controlServoBack(float Bpos)
 		;
 }
 
-int controlServo(int gunIndex, int pos)
+void controlServo(const int &gunIndex, const int &pos)
 {
 	float temp = pos - anglePos[gunIndex];
 
@@ -238,35 +249,33 @@ int controlServo(int gunIndex, int pos)
 		temp = pos;
 
 	if (POS_MAX < temp || POS_MIN > temp)
-		return temp;
+		return;
 
 	anglePos[gunIndex] = temp;
 
 	pwm.setPWM(gunIndex, 0, temp);
-
-	return temp;
 }
 
 void Load_Node_Data()
 {
 	// for (int i = 0; i < 2; i++)
 	// {
-	// 	Uart_Command_Rev();
-	// 	if (recv_flag)
-	// 	{
-	// 		break;
-	// 	}
+	//  Uart_Command_Rev();
+	//  if (recv_flag)
+	//  {
+	//    break;
+	//  }
 	// }
 	Uart_Command_Rev();
 	if (recv_flag)
 	{
 		// for (int i = 0; i < 10; i++)
 		// {
-		// 	Serial.print("inBuffer[");
-		// 	Serial.print(i);
-		// 	Serial.print("]:{");
-		// 	Serial.print(inBuffer[i]);
-		// 	Serial.println("}   ");
+		//  Serial.print("inBuffer[");
+		//  Serial.print(i);
+		//  Serial.print("]:{");
+		//  Serial.print(inBuffer[i]);
+		//  Serial.println("}   ");
 		// }
 
 		switch (inBuffer[1])
@@ -282,7 +291,7 @@ void Load_Node_Data()
 					checkTime[0] = micros();
 
 				start = 0;
-				ipos = ipos - 2;
+				ipos = ipos - 3;
 			}
 			break;
 			case '1':
@@ -292,7 +301,7 @@ void Load_Node_Data()
 					checkTime[0] = micros();
 
 				start = 1;
-				ipos = ipos + 2;
+				ipos = ipos + 3;
 			}
 			break;
 			case '2':
@@ -343,7 +352,7 @@ void Load_Node_Data()
 	{
 		// 5s 内无信号
 		start = 3;
-		Serial.println("TRS lost error");
+		// Serial.println("TRS lost error");
 	}
 
 	recv_flag = false;
