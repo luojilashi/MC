@@ -1,5 +1,0 @@
-{
-    "port": "COM8",
-    "board": "arduino:avr:micro",
-    "sketch": "TPWM.ino"
-}

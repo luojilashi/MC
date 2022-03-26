@@ -1,9 +1,9 @@
 // Visual Micro is in vMicro>General>Tutorial Mode
 // 
 /*
-Name:       water.ino
-Created:  2018/9/19 21:58:21
-Author:     DESKTOP-VSGKPOG\luoji
+    Name:       water.ino
+    Created:  2018/9/19 21:58:21
+    Author:     DESKTOP-VSGKPOG\luoji
 */
 
 // Define User Types below here or use a .h file
@@ -17,8 +17,7 @@ Author:     DESKTOP-VSGKPOG\luoji
 // Define Functions below here or use other .ino or cpp files
 //
 #include <Servo.h>    // 声明调用Servo.h库
-#define MAX_DEPTH 300
-#define DEF_DEPT_VALUE 250
+
 #define MID_GRADE   1500
 #define LOW_GRADE_1   900
 #define LOW_GRADE_2   1150
@@ -30,66 +29,50 @@ Servo myservo;        // 创建一个舵机对象
 
 unsigned long checkFullTime = 0;
 unsigned long checkEmptyTime = 0;
-const unsigned char intControl = 3;//控制
-const unsigned char outFull = 8;// 满水
-const unsigned char outEmpty = 7;// 空水
-const unsigned char lowV = 6;// 低电压 
-const unsigned char outControl = 10;//水泵
-int checkFullOutTime = 50;
+const int intControl = 3;//控制
+const int outControl = 4;//水泵
+int checkFullOutTime = 200;
 int checkEmptyOutTime = 800;
 int checkV = 75;
-int checkVLow = 130;
-unsigned char m_fullState = 0;
-unsigned char m_emptyState = 0;
+int checkVLow = 100;
+int fullState = 0;
+int emptyState = 0;
+bool isStop = true;
 bool isDepthLow = false;
 bool isVoltageLow = false;
 bool isDanger = false;
-double DeptTemp = 0;
 // The setup() function runs once each time the micro-controller starts
 void setup()
 {
   Serial.begin(9600);
   pinMode(intControl, INPUT);
-  pinMode(outFull, OUTPUT);
-  pinMode(outEmpty, OUTPUT);
-  pinMode(lowV, OUTPUT);
-  digitalWrite(outFull, LOW);
-  digitalWrite(outEmpty, LOW);
-  digitalWrite(lowV, LOW);
+  pinMode(2, OUTPUT);
+  digitalWrite(2, HIGH);
   myservo.attach(outControl);
   myservo.writeMicroseconds(MID_GRADE);
   checkFullTime = millis();
   checkEmptyTime = millis();
-  DeptTemp = double(DEF_DEPT_VALUE-160) / 1024;
 }
 
 // Add the main program code into the continuous loop() function
 void loop()
 {
-  isVoltageLow = analogRead(A0) < 690;
-  isDepthLow = false;//analogRead(A1) > MAX_DEPTH;
+  isVoltageLow = analogRead(A1) < 660;
+  isDepthLow = analogRead(A0) > 310;
   isDanger = isDanger || isVoltageLow || isDepthLow;
-
+  Serial.println(analogRead(A0));
+  
   int cState = getState();
-  //Serial.println(DeptTemp);
+
   getWaterFull();
   getWaterEmpty();
-
-  digitalWrite(outFull, m_fullState);
-  digitalWrite(outEmpty, m_emptyState);
-  
   // TODO
   isDanger = false;
   if (isDanger)
-  {
-    isDanger = isVoltageLow|| (analogRead(A1) < 160);
     cState = 4;
-  }
-  //else if(analogRead(A1)>(DeptTemp*analogRead(A4)+160))
-    //cState = 3;
 
-  digitalWrite(lowV, isDanger || cState ==3 && millis() / 1000 % 2);
-  //cState = 0;
+  
+  
   switch (cState)
   {
   case 1://上浮 排水
@@ -101,8 +84,6 @@ void loop()
     //Serial.println("DOWN");
     break;
   case 3:
-    setPump(0);
-    break;
   case 4:
     // 超过深度
     // 低电压上浮
@@ -121,7 +102,7 @@ int getState()
   int state = 0;
   delay(5);
   int control = pulseIn(intControl, HIGH);
-
+  
   if (control > LOW_GRADE_1 && control < LOW_GRADE_2)
   {
     //上浮 排水
@@ -136,7 +117,7 @@ int getState()
     //下潜 进水 
     state = 2;
   }
-
+  
   return state;
 }
 
@@ -148,31 +129,38 @@ void setPump(int pumpState)
     myservo.writeMicroseconds(MID_GRADE);
     break;
   case 1://排水
-    myservo.writeMicroseconds(HIGH_GRADE_1);
+    isStop = true;
+    myservo.writeMicroseconds(LOW_GRADE_2);
     break;
   case 2://进水
-    myservo.writeMicroseconds(LOW_GRADE_2);
+    if(isStop)
+    {
+      //myservo.writeMicroseconds(HIGH_GRADE_1);
+      //delay(50);
+      //myservo.writeMicroseconds(MID_GRADE);
+      //delay(50);
+      myservo.writeMicroseconds(HIGH_GRADE_1);
+      isStop = false;
+    }
+    myservo.writeMicroseconds(HIGH_GRADE_1);
     break;
   default:
     myservo.writeMicroseconds(MID_GRADE);
-    return;
+    break;
   }
-
-  digitalWrite(outEmpty,m_emptyState|| !m_fullState && pumpState !=0 && millis() / 1000 % 2);
-  
 }
 
-void getWaterFull()
+int getWaterFull()
 {
   auto mills = millis();
   int hi = analogRead(A2);
-  //Serial.println(m_fullState);
-  switch (m_fullState)
+  
+  switch (fullState)
   {
   case 1://full
     if (hi < checkV && (mills - checkFullTime)>checkFullOutTime)
     {
-      m_fullState = 0;
+      fullState=0;
       checkFullTime = mills;
     }
     else if (hi >= checkV)
@@ -183,7 +171,7 @@ void getWaterFull()
   case 0:
     if (hi >= checkV && (mills - checkFullTime)>checkFullOutTime)
     {
-      m_fullState = 1;
+      fullState = 1;
       checkFullTime = mills;
     }
     else if (hi < checkV)
@@ -194,36 +182,35 @@ void getWaterFull()
   default:
     break;
   }
-  //Serial.print("fullState");
-  //Serial.println(m_fullState);
+  
+  return fullState;
 }
 
-void getWaterEmpty()
+int getWaterEmpty()
 {
   auto mills = millis();
-  int he = analogRead(A3);
-  //Serial.println(he);
-
-  switch (m_emptyState)
+  int hi = analogRead(A3);
+  
+  switch (emptyState)
   {
   case 0:
-    if (he < checkVLow && (mills - checkEmptyTime)>checkEmptyOutTime)
+    if (hi < checkVLow && (mills - checkEmptyTime)>checkEmptyOutTime)
     {
-      m_emptyState = 1;
+      emptyState = 1;
       checkEmptyTime = mills;
     }
-    else if (he >= checkVLow)
+    else if (hi >= checkVLow)
     {
       checkEmptyTime = mills;
     }
     break;
   case 1://empty
-    if (he >= checkVLow && (mills - checkEmptyTime)>checkEmptyOutTime)
+    if (hi >= checkV && (mills - checkEmptyTime)>checkEmptyOutTime)
     {
-      m_emptyState = 0;
+      emptyState = 0;
       checkEmptyTime = mills;
     }
-    else if (he < checkVLow)
+    else if (hi < checkV)
     {
       checkEmptyTime = mills;
     }
@@ -231,14 +218,12 @@ void getWaterEmpty()
   default:
     break;
   }
-
-  //Serial.print("emptyState");
-  //Serial.println(m_emptyState);
+  return emptyState;
 }
 
 void drainOffWater()
 {
-  if (m_emptyState)
+  if (fullState)
     setPump(0);
   else
     setPump(1);
@@ -246,9 +231,8 @@ void drainOffWater()
 
 void inletWater()
 {
-  if (m_fullState)
+  if (emptyState)
     setPump(0);
   else
     setPump(2);
 }
-
