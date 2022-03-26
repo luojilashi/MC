@@ -35,7 +35,8 @@
             "includePath": [
                 "D:\\Program Files (x86)\\Arduino\\hardware\\arduino\\avr\\cores\\arduino",
                 "D:\\Program Files (x86)\\Arduino\\hardware\\arduino\\avr\\variants\\micro",
-                "D:\\Program Files (x86)\\Arduino\\libraries\\Servo\\src",
+                "D:\\Program Files (x86)\\Arduino\\hardware\\arduino\\avr\\libraries\\Wire\\src",
+                "C:\\Users\\PC\\Documents\\Arduino\\libraries\\Adafruit-PWM-Servo-Driver-Library-master",
                 "d:\\program files (x86)\\arduino\\hardware\\tools\\avr\\lib\\gcc\\avr\\7.3.0\\include",
                 "d:\\program files (x86)\\arduino\\hardware\\tools\\avr\\lib\\gcc\\avr\\7.3.0\\include-fixed",
                 "d:\\program files (x86)\\arduino\\hardware\\tools\\avr\\avr\\include"
