@@ -24,16 +24,17 @@ int HZ = 100;
 #define MID_GRADE_2 1600
 #define HIGH_GRADE_1 1900
 #define HIGH_GRADE_2 2100
-const short POS_MIN = 120*(HZ/50);
-const short POS_MILL = 260*(HZ/50);
-const short POS_MAX = 400*(HZ/50);
+const short POS_MIN = 120 * (HZ / 50);
+const short POS_MILL = 260 * (HZ / 50);
+const short POS_MAX = 400 * (HZ / 50);
 const byte PWM_PIN = 7;
 const byte gun_PIN = 0;
 
-double i = 0;
+float moveangle = 0.1;
+float i = 0;
 byte start = 0; // 0 左 1 右 2 停 3 中
-byte digital_Pin[2];
-short anglePos[2];
+byte digital_Pin[2] = {0, 0};
+float anglePos[16] = {0};
 unsigned long checkTime[2] = {0, 0};
 volatile int pwm_value[2] = {0, 0};
 volatile int prev_time[2] = {0, 0};
@@ -53,6 +54,8 @@ void setup()
 	digital_Pin[1] = digitalPinToInterrupt(gun_PIN);
 	attachInterrupt(digital_Pin[0], rising_0, RISING);
 	attachInterrupt(digital_Pin[1], rising_1, RISING);
+	for (int i = 0; i < 16; i++)
+		anglePos[i] = POS_MILL;
 
 	pwm.begin();
 	pwm.setPWMFreq(HZ); // This is the maximum PWM frequency
@@ -71,8 +74,8 @@ void falling_0()
 	pwm_value[0] = micros() - prev_time[0];
 	if (pwm_value[0] > HIGH_GRADE_2)
 		return;
-	//Serial.print("pwm_value0-");
-	// Serial.println(pwm_value[0]);
+	// Serial.print("pwm_value0-");
+	//  Serial.println(pwm_value[0]);
 }
 
 void rising_1()
@@ -143,9 +146,9 @@ void loadStart()
 void loop()
 {
 	loadStart();
-  // Serial.println(start);
-  
-  // return;
+	// Serial.println(start);
+
+	// return;
 	switch (start)
 	{
 	case 0: //左
@@ -161,37 +164,38 @@ void loop()
 	default:
 		break;
 	}
+	// Serial.println(i);
 }
 
-void controlServoFront(int Fpos)
+void controlServoFront(float Fpos)
 {
 	//前有效0-135 225-360
 	if (Fpos >= 0 && Fpos <= 1350)
 	{
-   Serial.println(map(Fpos, 0, 1350, POS_MILL, POS_MIN));
+		// Serial.println(map(Fpos, 0, 1350, POS_MILL, POS_MIN));
 		// 0-135
 		//右转
-		pwm.setPWM(0,0,map(Fpos, 0, 1350, POS_MILL, POS_MIN));
-    pwm.setPWM(4,0,map(Fpos, 0, 1350, POS_MILL, POS_MIN));
+		controlServo(0, map(Fpos, 0, 1350, POS_MILL, POS_MIN));
+		controlServo(4, map(Fpos, 0, 1350, POS_MILL, POS_MIN));
 	}
 	else if (Fpos >= 2250 && Fpos <= 3600)
 	{
 		// 225-360
 		//左转
-		pwm.setPWM(0,0,map(Fpos, 2250, 3600, POS_MAX, POS_MILL));
-    pwm.setPWM(0,0,map(Fpos, 2250, 3600, POS_MAX, POS_MILL));
+		controlServo(0, map(Fpos, 2250, 3600, POS_MAX, POS_MILL));
+		controlServo(0, map(Fpos, 2250, 3600, POS_MAX, POS_MILL));
 	}
 	else if (Fpos > 1800 && Fpos < 2250)
 	{
 		//左死区
-		pwm.setPWM(0,0,POS_MAX);
-    pwm.setPWM(4,0,POS_MAX);
+		controlServo(0, POS_MAX);
+		controlServo(4, POS_MAX);
 	}
 	else if (Fpos > 1350 && Fpos < 1800)
 	{
 		//右死区
-		pwm.setPWM(0,0,POS_MIN);
-    pwm.setPWM(4,0,POS_MIN);
+		controlServo(0, POS_MIN);
+		controlServo(4, POS_MIN);
 	}
 	else
 	{
@@ -200,15 +204,40 @@ void controlServoFront(int Fpos)
 	}
 }
 
-void controlServoBack(int Bpos)
+void controlServoBack(float Bpos)
 {
 	//后有效 45-315
 	if (Bpos >= 450 && Bpos <= 3150)
-		pwm.setPWM(8,0, map(Bpos, 450, 3150, POS_MAX, POS_MIN));
+		controlServo(8, map(Bpos, 450, 3150, POS_MAX, POS_MIN));
 	else if (Bpos > 3150 && Bpos < 3600)
-		pwm.setPWM(8,0,POS_MAX);
+		controlServo(8, POS_MAX);
 	else if (Bpos > 0 && Bpos < 450)
-		pwm.setPWM(8,0,POS_MIN);
+		controlServo(8, POS_MIN);
 	else
 		;
+}
+
+int controlServo(int gunIndex, int pos)
+{
+	// Serial.print("anglePos ");
+	// Serial.print(anglePos[gunIndex]);
+	// Serial.print("pos ");
+	Serial.println(pos);
+	float temp = pos - anglePos[gunIndex];
+
+	if (temp > 0)
+		temp = anglePos[gunIndex] + moveangle;
+	else if (temp < 0)
+		temp = anglePos[gunIndex] - moveangle;
+	else
+		temp = pos;
+
+	if (POS_MAX < temp || POS_MIN > temp)
+		return temp;
+
+	anglePos[gunIndex] = temp;
+
+	pwm.setPWM(gunIndex, 0, temp);
+
+	return temp;
 }
