@@ -16,7 +16,7 @@ void loop()
   char data[10] = {0};
   data[0]=0XF0;
   data[1]='1';
-  data[2]='2';
+  data[2]='1';
   data[3]='e';
   data[4]='r';
   data[5]='t';

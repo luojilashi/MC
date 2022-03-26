@@ -33,12 +33,12 @@ const short POS_MAX = 400 * (HZ / 50);
 const byte PWM_PIN = 2;
 const byte gun_PIN = 3;
 
-float moveangle = 0.1;
+float moveangle = 0.5;
 float ipos = 0;
 byte start = 0; // 0 左 1 右 2 停 3 中
 byte digital_Pin[2] = {0, 0};
 float anglePos[16] = {0};
-unsigned long checkTime[2] = {0, 0};
+unsigned long checkTime[3] = {0, 0};
 volatile int pwm_value[2] = {0, 0};
 volatile int prev_time[2] = {0, 0};
 
@@ -155,8 +155,8 @@ void loop()
 {
 	// loadStart();
 	Load_Node_Data();
-	Serial.println(start);
-
+	Serial.println(ipos);
+	// checkTime[2] = micros();
 	// return;
 	switch (start)
 	{
@@ -249,16 +249,15 @@ int controlServo(int gunIndex, int pos)
 
 void Load_Node_Data()
 {
-	for (int i = 0; i < 10; i++)
-	{
-		Uart_Command_Rev();
-		if (recv_flag)
-		{
-			// Serial.println("end");
-			break;
-		}
-	}
-
+	// for (int i = 0; i < 2; i++)
+	// {
+	// 	Uart_Command_Rev();
+	// 	if (recv_flag)
+	// 	{
+	// 		break;
+	// 	}
+	// }
+	Uart_Command_Rev();
 	if (recv_flag)
 	{
 		// for (int i = 0; i < 10; i++)
@@ -283,7 +282,7 @@ void Load_Node_Data()
 					checkTime[0] = micros();
 
 				start = 0;
-				ipos = ipos - 0.5;
+				ipos = ipos - 2;
 			}
 			break;
 			case '1':
@@ -293,7 +292,7 @@ void Load_Node_Data()
 					checkTime[0] = micros();
 
 				start = 1;
-				ipos = ipos + 0.5;
+				ipos = ipos + 2;
 			}
 			break;
 			case '2':
@@ -345,7 +344,6 @@ void Load_Node_Data()
 		// 5s 内无信号
 		start = 3;
 		Serial.println("TRS lost error");
-
 	}
 
 	recv_flag = false;
