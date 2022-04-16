@@ -2,13 +2,12 @@
 
 String comdata = ""; //String 定义一个空的字符串
 int STATE=1;
-SoftwareSerial cSerial(4, 5);
+SoftwareSerial cSerial(4, 5); // rx tx
 void setup()
 {
-    Serial.begin(9600);
-
-      cSerial.begin(9600);
-  cSerial.println("Hello, world?");
+  Serial.begin(9600);
+  cSerial.begin(9600);
+  cSerial.println("text serial");
 }
  
 void loop()
