@@ -30,3 +30,9 @@
 byte digital_Pin[4] = {0, 0, 0, 0};
 volatile int pwm_value[4] = {0, 0, 0, 0};
 volatile int prev_time[4] = {0, 0, 0, 0};
+
+double mapdouble(double x, double in_min, double in_max, double out_min, double out_max)
+{
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+

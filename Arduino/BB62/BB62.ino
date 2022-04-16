@@ -18,17 +18,18 @@ Author:     MSI\MingCH
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 #include "defineData.h"
-int HZ = 100;
-const short POS_MIN = 120 * (HZ / 50);
-const short POS_MILL = 260 * (HZ / 50);
-const short POS_MAX = 400 * (HZ / 50);
+int HZ = 50;
+const double POS_D = 0.1729;
+const double POS_MIN = 550 * (HZ / 50) * POS_D;
+const double POS_MILL = 1500 * (HZ / 50) * POS_D;
+const double POS_MAX = 2450 * (HZ / 50) * POS_D;
 const byte PWM_PIN = 2;
 const byte gun_PIN = 3;
 
 float moveangle = 0.5;
 float ipos = 0;
 byte start = 0; // 0 左 1 右 2 停 3 中
-float anglePos[16] = {0};
+double anglePos[16] = {0};
 unsigned long checkTime[3] = {0, 0, 0};
 
 ////////////////////////////////////////////
@@ -94,16 +95,16 @@ void loop()
 	Serial.println(ipos);
 }
 
-void controlServoFront(float Fpos)
+void controlServoFront(int Fpos)
 {
 	//前有效0-135 225-360
-	int pos = POS_MAX;
+	double pos = POS_MAX;
 	if (Fpos >= 0 && Fpos <= 1350)
 	{
-		// Serial.println(map(Fpos, 0, 1350, POS_MILL, POS_MIN));
+		// Serial.println(mapdouble(Fpos, 0, 1350, POS_MILL, POS_MIN));
 		// 0-135
 		//右转
-		pos = map(Fpos, 0, 1350, POS_MILL, POS_MIN);
+		pos = mapdouble(Fpos, 0, 1350, POS_MILL, POS_MIN);
 		controlServo(0, pos);
 		controlServo(4, pos);
 	}
@@ -111,7 +112,7 @@ void controlServoFront(float Fpos)
 	{
 		// 225-360
 		//左转
-		pos = map(Fpos, 2250, 3600, POS_MAX, POS_MILL);
+		pos = mapdouble(Fpos, 2250, 3600, POS_MAX, POS_MILL);
 		controlServo(0, pos);
 		controlServo(4, pos);
 	}
@@ -142,11 +143,11 @@ void controlServoFront(float Fpos)
 	// controlServo(10, pos);
 }
 
-void controlServoBack(float Bpos)
+void controlServoBack(int Bpos)
 {
 	//后有效 45-315
 	if (Bpos >= 450 && Bpos <= 3150)
-		controlServo(8, map(Bpos, 450, 3150, POS_MAX, POS_MIN));
+		controlServo(8, mapdouble(Bpos, 450, 3150, POS_MAX, POS_MIN));
 	else if (Bpos > 3150 && Bpos < 3600)
 		controlServo(8, POS_MAX);
 	else if (Bpos > 0 && Bpos < 450)
@@ -155,9 +156,9 @@ void controlServoBack(float Bpos)
 		;
 }
 
-void controlServo(const int &gunIndex, const int &pos)
+void controlServo(const int &gunIndex, const double &pos)
 {
-	float temp = pos - anglePos[gunIndex];
+	double temp = pos - anglePos[gunIndex];
 
 	if (temp > 0)
 		temp = anglePos[gunIndex] + moveangle;
