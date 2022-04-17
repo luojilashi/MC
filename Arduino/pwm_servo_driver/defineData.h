@@ -30,6 +30,7 @@
 byte digital_Pin[4] = {0, 0, 0, 0};
 volatile int pwm_value[4] = {0, 0, 0, 0};
 volatile int prev_time[4] = {0, 0, 0, 0};
+unsigned long checkTime[4] = {0, 0, 0, 0};
 
 #define DATA(type, name, def)                     \
     bool send##name = false;                      \
@@ -44,34 +45,33 @@ volatile int prev_time[4] = {0, 0, 0, 0};
     };
 
 DATA(char, start, '0') // 0 左 1 右 2 停 3 中
-unsigned long checkTime[3] = {0, 0, 0};
 
 void loadStart()
 {
-    if (pwm_value[0] > LOW_GRADE_1 && pwm_value[0] < LOW_GRADE_2)
+    if (pwm_value[3] > LOW_GRADE_1 && pwm_value[3] < LOW_GRADE_2)
     {
         //右转,时间记录
         if (Getstart() != '0')
-            checkTime[0] = micros();
+            checkTime[3] = micros();
 
         Setstart('0');
     }
-    else if (pwm_value[0] > HIGH_GRADE_1 && pwm_value[0] < HIGH_GRADE_2)
+    else if (pwm_value[3] > HIGH_GRADE_1 && pwm_value[3] < HIGH_GRADE_2)
     {
         //左转,时间记录
         if (Getstart() != '1')
-            checkTime[0] = micros();
+            checkTime[3] = micros();
 
         Setstart('1');
     }
-    else if (pwm_value[0] > MID_GRADE_1 && pwm_value[0] < MID_GRADE_2)
+    else if (pwm_value[3] > MID_GRADE_1 && pwm_value[3] < MID_GRADE_2)
     {
         // 2 停 3 中
         if (Getstart() != '2' && Getstart() != '3')
         {
             //状态切换
-            //大500ms 暂停，反之回中
-            if (micros() - checkTime[0] > 500000)
+            //大200ms 暂停，反之回中
+            if (micros() - checkTime[3] > 200000)
             {
                 Setstart('2');
             }
@@ -80,7 +80,7 @@ void loadStart()
                 Setstart('3');
             }
             //暂停或回中时间记录
-            checkTime[0] = micros();
+            checkTime[3] = micros();
         }
     }
 }
