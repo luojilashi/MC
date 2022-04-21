@@ -60,6 +60,7 @@ void sendData()
   data[8] = DEF_NODE_END;
 
   cSerial.println(data);
+  delay(50);
   sendstart = false;
   checkTime[1] = micros();
   // Serial.println(data);
