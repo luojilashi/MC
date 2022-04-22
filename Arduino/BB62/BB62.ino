@@ -25,13 +25,15 @@ const double POS_MILL = 1500 * (HZ / 50) * POS_D;
 const double POS_MAX = 2450 * (HZ / 50) * POS_D;
 const byte PWM_PIN = 2;
 const byte gun_PIN = 3;
-
+#ifdef _DEBUG_ARD
+double moveangle = 0.5;// 0.035 no log
+#else
 double moveangle = 0.035;
+#endif
+
 double moveipos = moveangle * 3600 / POS_MAX;
 double ipos = 0;
-byte start = 0; // 0 左 1 右 2 停 3 中
 double anglePos[16] = {0};
-unsigned long checkTime[3] = {0, 0, 0};
 
 ////////////////////////////////////////////
 
@@ -53,7 +55,7 @@ FALLING_FUNC(1)
 void setup()
 {
   Serial.begin(9600);
-  Serial.println("16 channel PWM test!");
+  _println_log("16 channel PWM test!");
 
   pinMode(PWM_PIN, INPUT_PULLUP);
   pinMode(gun_PIN, INPUT_PULLUP);
@@ -74,27 +76,28 @@ void setup()
 // Add the main program code into the continuous loop() function
 void loop()
 {
-  // loadStart();
-  Load_Node_Data();
-  // Serial.println(micros() - checkTime[2]);
+  loadStart(0);
+  Load_pos();
+  //Load_Node_Data();
+  // _println_log(micros() - checkTime[2]);
   // checkTime[2] = micros();
   //  return;
-  switch (start)
+  switch (Getstart())
   {
-  case '0': //左
-  case '1': //右
-  case '2': //暂停
-    controlServoFront(ipos);
-    controlServoBack(ipos);
-    break;
-  case '3': //回中
-    controlServoFront(0);
-    controlServoBack(1800);
-    break;
-  default:
-    break;
+    case '0': //左
+    case '1': //右
+    case '2': //暂停
+      controlServoFront(ipos);
+      controlServoBack(ipos);
+      break;
+    case '3': //回中
+      controlServoFront(0);
+      controlServoBack(1800);
+      break;
+    default:
+      break;
   }
-  // Serial.println(ipos);
+  _println_log(ipos);
 }
 
 void controlServoFront(double Fpos)
@@ -149,11 +152,11 @@ void controlServoBack(double Bpos)
 {
   //后有效 45-315
   if (Bpos >= 450 && Bpos <= 3150)
-    controlServo(8, mapdouble(Bpos, 450, 3150, POS_MAX, POS_MIN));
+    controlServo(8, mapdouble(Bpos, 450, 3150, POS_MAX, POS_MIN) );
   else if (Bpos > 3150 && Bpos < 3600)
-    controlServo(8, POS_MAX);
-  else if (Bpos > 0 && Bpos < 450)
     controlServo(8, POS_MIN);
+  else if (Bpos > 0 && Bpos < 450)
+    controlServo(8, POS_MAX);
   else
     ;
 }
@@ -175,6 +178,33 @@ void controlServo(const int &gunIndex, const double &pos)
   anglePos[gunIndex] = temp;
 
   pwm.setPWM(gunIndex, 0, temp);
+}
+
+void Load_pos()
+{
+  {
+    switch (Getstart())
+    {
+      case '0': // 左
+        ipos = ipos - moveipos;
+        break;
+      case '1': // 右
+        ipos = ipos + moveipos;
+        break;
+      case '2': // 暂停
+        break;
+      case '3': // 回中
+        ipos = 0;
+        break;
+      default:
+        break;
+    }
+    if (ipos >= 3600)
+      ipos = 0;
+
+    if (ipos < 0)
+      ipos = 3600;
+  }
 }
 
 void Load_Node_Data()
@@ -201,53 +231,31 @@ void Load_Node_Data()
 
     switch (inBuffer[1])
     {
-    case '1': //  主炮转向
-    {
-      start = inBuffer[2];
-    }
-    break;
-    case '2':
-    case '3':
-    case '4':
-    case '5':
-      break;
+      case '1': //  主炮转向
+        {
+          Setstart(inBuffer[2]);
+        }
+        break;
+      case '2':
+      case '3':
+      case '4':
+      case '5':
+        break;
 
-    default:
-      break;
+      default:
+        break;
     }
     checkTime[1] = micros();
     memset(inBuffer, 0x00, sizeof(inBuffer));
   }
   // 获取炮转状态
-  {
-    switch (start)
-    {
-    case '0': // 左
-      ipos = ipos - moveipos;
-      break;
-    case '1': // 右
-      ipos = ipos + moveipos;
-      break;
-    case '2': // 暂停
-      break;
-    case '3': // 回中
-      ipos = 0;
-      break;
-    default:
-      break;
-    }
-    if (ipos >= 3600)
-      ipos = 0;
-
-    if (ipos < 0)
-      ipos = 3600;
-  }
+  Load_pos();
 
   if (micros() - checkTime[1] > 5000000)
   {
     // 5s 内无信号
-    start = 3;
-    // Serial.println("TRS lost error");
+    Setstart('3');
+    // _println_log("TRS lost error");
   }
   recv_flag = false;
 }
@@ -258,42 +266,42 @@ void Uart_Command_Rev()
   while (Serial.available() > 0)
   {
     ch = Serial.read();
-    // Serial.print("CmdState:[");
-    // Serial.print(CmdState);
-    // Serial.print("]ch:[");
-    // Serial.print(ch);
-    // Serial.println("]");
+    // _print_log("CmdState:[");
+    // _print_log(CmdState);
+    // _print_log("]ch:[");
+    //_print_log(ch);
+    //_println_log("]");
     switch (CmdState)
     {
-    /******** start *********/
-    case 0:
-    {
-      if (DEF_NODE_SST == ch)
-      {
-        bufferIndex = 0;
-        CmdState = 1;
-      }
-    }
-    break;
-    /******** data *********/
-    case 1:
-    {
-      if (DEF_NODE_END == ch)
-      {
-        CmdState = 2;
-      }
-      bufferIndex++;
-      inBuffer[bufferIndex] = ch;
-    }
-    break;
-    /******** end *********/
-    case 2:
-    {
-      bufferIndex = 0;
-      recv_flag = true;
-      CmdState = 0;
-    }
-    break;
+      /******** start *********/
+      case 0:
+        {
+          if (DEF_NODE_SST == ch)
+          {
+            bufferIndex = 0;
+            CmdState = 1;
+          }
+        }
+        break;
+      /******** data *********/
+      case 1:
+        {
+          if (DEF_NODE_END == ch)
+          {
+            CmdState = 2;
+          }
+          bufferIndex++;
+          inBuffer[bufferIndex] = ch;
+        }
+        break;
+      /******** end *********/
+      case 2:
+        {
+          bufferIndex = 0;
+          recv_flag = true;
+          CmdState = 0;
+        }
+        break;
     }
   }
 }
