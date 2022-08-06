@@ -16,8 +16,13 @@ void setup()
   Serial.begin(9600);
   cSerial.begin(9600);
 
+
   for (int i = 0; i < 4; i++)
   {
+    pwm_value[i] = 0;
+    prev_time[i] = 0;
+    checkTime[i] = 0.0;
+
     pinMode(i, INPUT_PULLUP);
     digital_Pin[i] = digitalPinToInterrupt(i);
   }
@@ -33,8 +38,24 @@ void setup()
 void loop()
 {
   loadStart();
-  // Serial.println(Getstart());
+  //Serial.println(Getstart());
+  //TextFunc();
   LoadData();
+}
+
+void TextFunc() {
+  Serial.print("St_0[");
+  Serial.print(pwm_value[0]);
+  Serial.print("]");
+  Serial.print("   St_1[");
+  Serial.print(pwm_value[1]);
+  Serial.print("]");
+  Serial.print("   St_2[");
+  Serial.print(pwm_value[2]);
+  Serial.print("]");
+  Serial.print("   St_3[");
+  Serial.print(pwm_value[3]);
+  Serial.println("]");
 }
 
 void LoadData()

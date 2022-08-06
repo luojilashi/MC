@@ -20,15 +20,15 @@
 #include "defineData.h"
 int HZ = 50;
 const double POS_D = 0.1729;
-const double POS_MIN = 550 * (HZ / 50) * POS_D;
-const double POS_MILL = 1500 * (HZ / 50) * POS_D;
-const double POS_MAX = 2450 * (HZ / 50) * POS_D;
+const double POS_MIN = 700 * (HZ / 50) * POS_D;
+const double POS_MILL = 1520 * (HZ / 50) * POS_D;
+const double POS_MAX = 2300 * (HZ / 50) * POS_D;
 const byte PWM_PIN = 2;
 const byte gun_PIN = 3;
 #ifdef _DEBUG_ARD
-double moveangle = 0.5;// 0.035 no log
+double moveangle = 1;// 0.035 no log
 #else
-double moveangle = 0.035;
+double moveangle = 0.15;
 #endif
 
 double moveipos = moveangle * 3600 / POS_MAX;
@@ -55,7 +55,7 @@ FALLING_FUNC(1)
 void setup()
 {
   Serial.begin(9600);
-  _println_log("16 channel PWM test!");
+  Serial.println("16 channel PWM test!");
 
   pinMode(PWM_PIN, INPUT_PULLUP);
   pinMode(gun_PIN, INPUT_PULLUP);
@@ -76,12 +76,12 @@ void setup()
 // Add the main program code into the continuous loop() function
 void loop()
 {
-  loadStart(0);
-  Load_pos();
-  //Load_Node_Data();
-  // _println_log(micros() - checkTime[2]);
-  // checkTime[2] = micros();
-  //  return;
+  //loadStart(0);
+  //Load_pos();
+  Load_Node_Data();
+   //_println_log(micros() - checkTime[2]);
+   //checkTime[2] = micros();
+
   switch (Getstart())
   {
     case '0': //左
@@ -97,7 +97,16 @@ void loop()
     default:
       break;
   }
-  _println_log(ipos);
+  //_println_log(anglePos[0]);
+  sendDataPwm();
+}
+
+void TEXT_FUNC()
+{
+  // loadStart(0);
+  controlServoFront(900);
+  controlServoBack(900);
+  sendDataPwm();
 }
 
 void controlServoFront(double Fpos)
@@ -161,6 +170,12 @@ void controlServoBack(double Bpos)
     ;
 }
 
+void sendDataPwm()
+{
+  for (int i = 0; i < 16; i++)
+    pwm.setPWM(i, 0, anglePos[i]);
+}
+
 void controlServo(const int &gunIndex, const double &pos)
 {
   double temp = pos - anglePos[gunIndex];
@@ -176,8 +191,6 @@ void controlServo(const int &gunIndex, const double &pos)
     return;
 
   anglePos[gunIndex] = temp;
-
-  pwm.setPWM(gunIndex, 0, temp);
 }
 
 void Load_pos()
@@ -245,13 +258,13 @@ void Load_Node_Data()
       default:
         break;
     }
-    checkTime[1] = micros();
+    checkTime[3] = micros();
     memset(inBuffer, 0x00, sizeof(inBuffer));
   }
   // 获取炮转状态
   Load_pos();
 
-  if (micros() - checkTime[1] > 5000000)
+  if (micros() - checkTime[3] > 5000000)
   {
     // 5s 内无信号
     Setstart('3');
