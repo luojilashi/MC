@@ -10,8 +10,8 @@
 #define DEF_NODE_END 0XFF
 
 #ifdef _DEBUG_ARD
-#define _println_log(var)   Serial.println(var);
-#define _print_log(var)   Serial.print(var);
+#define _println_log(var) Serial.println(var);
+#define _print_log(var) Serial.print(var);
 #else
 #define _println_log(var)
 #define _print_log(var)
@@ -40,16 +40,19 @@ volatile int pwm_value[4] = {0, 0, 0, 0};
 volatile int prev_time[4] = {0, 0, 0, 0};
 unsigned long checkTime[4] = {0, 0, 0, 0};
 
-#define DATA(type, name, def)                     \
-    bool send##name = false;                      \
-    type m_##name = def;                          \
-    const type &Get##name() { return m_##name; }; \
-    void Set##name(type var)                      \
-    {                                             \
-        if (var == m_##name)                      \
-            return;                               \
-        m_##name = var;                           \
-        send##name = true;                        \
+#define DATA(type, name, def) \
+    bool send##name = false;  \
+    type m_##name = def;      \
+    const type &Get##name()   \
+    {                         \
+        return m_##name;      \
+    };                        \
+    void Set##name(type var)  \
+    {                         \
+        if (var == m_##name)  \
+            return;           \
+        m_##name = var;       \
+        send##name = true;    \
     };
 
 DATA(char, start, '0') // 0 左 1 右 2 停 3 中
@@ -59,11 +62,16 @@ double mapdouble(double x, double in_min, double in_max, double out_min, double 
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
+double LinearEquationIn2Unknowns(double x, double a, double b)
+{
+    return x*a+b;
+}
+
 void loadStart(int index)
 {
     if (pwm_value[index] > LOW_GRADE_1 && pwm_value[index] < LOW_GRADE_2)
     {
-        //右转,时间记录
+        // 右转,时间记录
         if (Getstart() != '0')
             checkTime[3] = micros();
 
@@ -71,7 +79,7 @@ void loadStart(int index)
     }
     else if (pwm_value[index] > HIGH_GRADE_1 && pwm_value[index] < HIGH_GRADE_2)
     {
-        //左转,时间记录
+        // 左转,时间记录
         if (Getstart() != '1')
             checkTime[index] = micros();
 
@@ -82,8 +90,8 @@ void loadStart(int index)
         // 2 停 3 中
         if (Getstart() != '2' && Getstart() != '3')
         {
-            //状态切换
-            //大200ms 暂停，反之回中
+            // 状态切换
+            // 大200ms 暂停，反之回中
             if (micros() - checkTime[index] > 200000)
             {
                 Setstart('2');
@@ -92,7 +100,7 @@ void loadStart(int index)
             {
                 Setstart('3');
             }
-            //暂停或回中时间记录
+            // 暂停或回中时间记录
             checkTime[index] = micros();
         }
     }

@@ -31,7 +31,7 @@ double moveangle = 1; // 0.035 no log
 double moveangle = 1.5;
 #endif
 
-double moveipos = moveangle *1.1;
+double moveipos = moveangle * 1.1;
 double ipos = 0;
 double anglePos[16] = {0};
 
@@ -91,40 +91,40 @@ void TEXT_FUNC()
 
 void controlServoFront(double Fpos)
 {
-  //前有效0-135 225-360
+  // 前有效0-135 225-360
   double pos = POS_MAX;
   if (Fpos >= 0 && Fpos <= 1350)
   {
     // Serial.println(mapdouble(Fpos, 0, 1350, POS_MILL, POS_MIN));
     // 0-135
-    //右转
-    pos = mapdouble(Fpos, 0, 1350, POS_MILL, POS_MIN);
-    controlServo(0, pos);
-    controlServo(1, pos);
+    // 右转
+    pos = LinearEquationIn2Unknowns(Fpos, -16 / 27, 1350);
+    controlServoDelay(0, pos, moveangle);
+    controlServoDelay(1, pos, moveangle);
   }
   else if (Fpos >= 2250 && Fpos <= 3600)
   {
     // 225-360
-    //左转
-    pos = mapdouble(Fpos, 2250, 3600, POS_MAX, POS_MILL);
-    controlServo(0, pos);
-    controlServo(1, pos);
+    // 左转
+    pos = LinearEquationIn2Unknowns(Fpos, -16 / 27, 3633.33);
+    controlServoDelay(0, pos, moveangle);
+    controlServoDelay(1, pos, moveangle);
   }
   else if (Fpos > 1800 && Fpos < 2250)
   {
-    //左死区
-    controlServo(0, pos);
-    controlServo(1, pos);
+    // 左死区
+    controlServoDelay(0, pos, moveangle);
+    controlServoDelay(1, pos, moveangle);
   }
   else if (Fpos > 1350 && Fpos < 1800)
   {
-    //右死区
-    controlServo(0, POS_MIN);
-    controlServo(1, POS_MIN);
+    // 右死区
+    controlServoDelay(0, POS_MIN, moveangle);
+    controlServoDelay(1, POS_MIN, moveangle);
   }
   else
   {
-    //无效
+    // 无效
     ;
   }
   // controlServo(1, pos);
@@ -139,13 +139,13 @@ void controlServoFront(double Fpos)
 
 void controlServoBack(double Bpos)
 {
-  //后有效 45-315
+  // 后有效 45-315
   if (Bpos >= 450 && Bpos <= 3150)
-    controlServo(2, mapdouble(Bpos, 450, 3150, POS_MAX, POS_MIN));
+    controlServoDelay(2, LinearEquationIn2Unknowns(Bpos, -16 / 27, 2566.67), moveangle);
   else if (Bpos > 3150 && Bpos < 3600)
-    controlServo(2, POS_MIN);
+    controlServoDelay(2, POS_MIN, moveangle);
   else if (Bpos > 0 && Bpos < 450)
-    controlServo(2, POS_MAX);
+    controlServoDelay(2, POS_MAX, moveangle);
   else
     ;
 }
@@ -155,7 +155,7 @@ void sendDataPwm()
   char strdata[64] = "";
   sprintf(strdata, "#1P%d#2P%d#3P%d", (int)anglePos[0], (int)anglePos[1], (int)anglePos[2]);
   SoftSerial.println(strdata);
-  //Serial.println(strdata);
+  // Serial.println(strdata);
   Setstart('0');
 }
 
@@ -164,13 +164,13 @@ void load_main_gun()
   Load_pos();
   switch (Getstart())
   {
-  case '0': //左
-  case '1': //右
-  case '2': //暂停
+  case '0': // 左
+  case '1': // 右
+  case '2': // 暂停
     controlServoFront(ipos);
     controlServoBack(ipos);
     break;
-  case '3': //回中
+  case '3': // 回中
     controlServoFront(0);
     controlServoBack(1800);
     break;
@@ -182,14 +182,14 @@ void load_main_gun()
   sendDataPwm();
 }
 
-void controlServo(const int &gunIndex, const double &pos)
+void controlServoDelay(const int &gunIndex, const double &pos, double delay)
 {
   double temp = pos - anglePos[gunIndex];
 
   if (temp > 0)
-    temp = anglePos[gunIndex] + moveangle;
+    temp = anglePos[gunIndex] + delay;
   else if (temp < 0)
-    temp = anglePos[gunIndex] - moveangle;
+    temp = anglePos[gunIndex] - delay;
   else
     temp = pos;
 
@@ -197,6 +197,14 @@ void controlServo(const int &gunIndex, const double &pos)
     return;
 
   anglePos[gunIndex] = temp;
+}
+
+void controlServo(const int &gunIndex, const double &pos)
+{
+  if (POS_MAX < pos || POS_MIN > pos)
+    return;
+
+  anglePos[gunIndex] = pos;
 }
 
 void Load_pos()
