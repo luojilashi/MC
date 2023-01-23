@@ -74,10 +74,10 @@ void setup()
 void loop()
 {
   // loadStart(0);
-  // Load_pos();
-  // Load_Node_Data();
-  //_println_log(micros() - checkTime[2]);
-  // checkTime[2] = micros();
+  Load_pos();
+  Load_Node_Data();
+  Serial.println(micros() - checkTime[2]);
+  checkTime[2] = micros();
   load_main_gun();
 }
 
