@@ -39,15 +39,16 @@ byte digital_Pin[4] = {0, 0, 0, 0};
 volatile int pwm_value[4] = {0, 0, 0, 0};
 volatile int prev_time[4] = {0, 0, 0, 0};
 unsigned long checkTime[4] = {0, 0, 0, 0};
+unsigned long pitch_time[12] = {0};
 
 #define DATA(type, name, def) \
     bool send##name = false;  \
     type m_##name = def;      \
-    const type &Get##name()   \
+    const type &get_##name()  \
     {                         \
         return m_##name;      \
     };                        \
-    void Set##name(type var)  \
+    void set_##name(type var) \
     {                         \
         if (var == m_##name)  \
             return;           \
@@ -62,9 +63,14 @@ double mapdouble(double x, double in_min, double in_max, double out_min, double 
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
+double reverse_mapdouble(double y, double in_min, double in_max, double out_min, double out_max)
+{
+    return (y - out_min) * (in_max - in_min) / (out_max - out_min) + in_min;
+}
+
 double LinearEquationIn2Unknowns(double x, double a, double b)
 {
-    return x*a+b;
+    return x * a + b;
 }
 
 void loadStart(int index)
@@ -72,36 +78,36 @@ void loadStart(int index)
     if (pwm_value[index] > LOW_GRADE_1 && pwm_value[index] < LOW_GRADE_2)
     {
         // 右转,时间记录
-        if (Getstart() != '0')
-            checkTime[3] = micros();
+        if (get_start() != '0')
+            checkTime[3] = millis();
 
-        Setstart('0');
+        set_start('0');
     }
     else if (pwm_value[index] > HIGH_GRADE_1 && pwm_value[index] < HIGH_GRADE_2)
     {
         // 左转,时间记录
-        if (Getstart() != '1')
-            checkTime[index] = micros();
+        if (get_start() != '1')
+            checkTime[index] = millis();
 
-        Setstart('1');
+        set_start('1');
     }
     else if (pwm_value[index] > MID_GRADE_1 && pwm_value[index] < MID_GRADE_2)
     {
         // 2 停 3 中
-        if (Getstart() != '2' && Getstart() != '3')
+        if (get_start() != '2' && get_start() != '3')
         {
             // 状态切换
             // 大200ms 暂停，反之回中
-            if (micros() - checkTime[index] > 200000)
+            if (millis() - checkTime[index] > 200)
             {
-                Setstart('2');
+                set_start('2');
             }
             else
             {
-                Setstart('3');
+                set_start('3');
             }
             // 暂停或回中时间记录
-            checkTime[index] = micros();
+            checkTime[index] = millis();
         }
     }
 }

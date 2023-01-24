@@ -16,32 +16,39 @@
 //
 
 #include <Wire.h>
-#include "defineData.h"
 #include <SoftwareSerial.h>
+#include "defineData.h"
 
-int HZ = 50;
 const double POS_MIN = 700;
 const double POS_MILL = 1500;
 const double POS_MAX = 2300;
+const int GUN_PITCH_MAX = 400;
+const int GUN_PITCH_MIN = -50;
 const byte PWM_PIN = 2;
 const byte gun_PIN = 3;
-#ifdef _DEBUG_ARD
-double moveangle = 1; // 0.035 no log
-#else
-double moveangle = 1.5;
-#endif
+const int m_angle_value[12][2] = {{1374, 2248}, {1874, 1068}, {1731, 922}, {1196, 2015}, {1895, 1185}, {1783, 887}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
 
-double moveipos = moveangle * 1.1;
-double ipos = 0;
-double anglePos[16] = {0};
+#ifdef _DEBUG_ARD
+const double moveangle = 2; // 0.035 no log
+#else
+double moveangle = 3;
+#endif
+const double moveipos = moveangle * 1.1;
+
+////////////////////////////////
+
+double m_ipos = 0;
+double m_anglePos[32] = {0};
+int m_anglePitch[12] = {0};
+char m_strdata[256] = "";
 
 ////////////////////////////////////////////
 
-uint8_t inBuffer[10];   // 接收指令缓冲区
-int bufferIndex = 0;    // 接收指令字符计数
-uint8_t ch;             // 临时单个字符存储
-bool recv_flag = false; // 指令接收成功标志位
-int CmdState;           // 指令接收状态
+uint8_t m_inBuffer[10];   // 接收指令缓冲区
+int m_bufferIndex = 0;    // 接收指令字符计数
+uint8_t m_ch;             // 临时单个字符存储
+bool m_recv_flag = false; // 指令接收成功标志位
+int m_cmdState;           // 指令接收状态
 ////////////////////////////////////////////////////////////
 
 SoftwareSerial SoftSerial(4, 5); // RX, TX
@@ -52,8 +59,8 @@ FALLING_FUNC(1)
 
 void setup()
 {
-  Serial.begin(9600);
-  SoftSerial.begin(9600);
+  Serial.begin(115200);
+  SoftSerial.begin(115200);
   Serial.println("16 channel PWM test!");
 
   pinMode(PWM_PIN, INPUT_PULLUP);
@@ -63,30 +70,49 @@ void setup()
   digital_Pin[1] = digitalPinToInterrupt(gun_PIN);
   attachInterrupt(digital_Pin[0], rising_0, RISING);
   attachInterrupt(digital_Pin[1], rising_1, RISING);
-  for (int i = 0; i < 16; i++)
-    anglePos[i] = POS_MILL;
+  set_start('3');
+  for (int i = 0; i < 32; i++)
+    m_anglePos[i] = POS_MILL;
 
+  sendDataPwm();
   pinMode(7, OUTPUT);
-  delay(500);
+  delay(200);
 }
 
 // Add the main program code into the continuous loop() function
 void loop()
 {
-  // loadStart(0);
-  Load_pos();
-  Load_Node_Data();
-  Serial.println(micros() - checkTime[2]);
+  _println_log(micros() - checkTime[2]);
   checkTime[2] = micros();
+  load_node_data();
   load_main_gun();
+  TEXT_FUNC();
+  sendDataPwm();
+  delay(25);
 }
 
 void TEXT_FUNC()
 {
-  // loadStart(0);
-  controlServoFront(900);
-  controlServoBack(900);
-  sendDataPwm();
+#ifdef _DEBUG_ARD
+
+#else
+
+#endif
+  set_start('3');
+  double asd = micros() / 30000;
+  int iii = int(asd) % (GUN_PITCH_MAX * 2);
+  if (iii > GUN_PITCH_MAX)
+  {
+    gun_pitch('a', GUN_PITCH_MAX, false);
+    gun_pitch('b', GUN_PITCH_MAX, false);
+  }
+  else
+  {
+    gun_pitch('a', GUN_PITCH_MIN, false);
+    gun_pitch('b', GUN_PITCH_MIN, false);
+  }
+
+  //  gun_pitch('a',GUN_PITCH_MIN, false);
 }
 
 void controlServoFront(double Fpos)
@@ -98,77 +124,76 @@ void controlServoFront(double Fpos)
     // Serial.println(mapdouble(Fpos, 0, 1350, POS_MILL, POS_MIN));
     // 0-135
     // 右转
-    pos = LinearEquationIn2Unknowns(Fpos, -16 / 27, 1350);
+    pos = mapdouble(Fpos, 0, 1350, POS_MILL, POS_MIN);
     controlServoDelay(0, pos, moveangle);
-    controlServoDelay(1, pos, moveangle);
+    controlServoDelay(4, pos, moveangle);
   }
   else if (Fpos >= 2250 && Fpos <= 3600)
   {
     // 225-360
     // 左转
-    pos = LinearEquationIn2Unknowns(Fpos, -16 / 27, 3633.33);
+    pos = mapdouble(Fpos, 2250, 3600, POS_MAX, POS_MILL);
     controlServoDelay(0, pos, moveangle);
-    controlServoDelay(1, pos, moveangle);
+    controlServoDelay(4, pos, moveangle);
   }
   else if (Fpos > 1800 && Fpos < 2250)
   {
     // 左死区
     controlServoDelay(0, pos, moveangle);
-    controlServoDelay(1, pos, moveangle);
+    controlServoDelay(4, pos, moveangle);
   }
   else if (Fpos > 1350 && Fpos < 1800)
   {
     // 右死区
     controlServoDelay(0, POS_MIN, moveangle);
-    controlServoDelay(1, POS_MIN, moveangle);
+    controlServoDelay(4, POS_MIN, moveangle);
   }
   else
   {
     // 无效
     ;
   }
-  // controlServo(1, pos);
-  // controlServo(2, pos);
-  // controlServo(3, pos);
-  // controlServo(5, pos);
-  // controlServo(6, pos);
-  // controlServo(7, pos);
-  // controlServo(9, pos);
-  // controlServo(10, pos);
 }
 
 void controlServoBack(double Bpos)
 {
   // 后有效 45-315
   if (Bpos >= 450 && Bpos <= 3150)
-    controlServoDelay(2, LinearEquationIn2Unknowns(Bpos, -16 / 27, 2566.67), moveangle);
+    controlServo(8, mapdouble(Bpos, 450, 3150, POS_MAX, POS_MIN));
   else if (Bpos > 3150 && Bpos < 3600)
-    controlServoDelay(2, POS_MIN, moveangle);
+    controlServoDelay(8, POS_MIN, moveangle);
   else if (Bpos > 0 && Bpos < 450)
-    controlServoDelay(2, POS_MAX, moveangle);
+    controlServoDelay(8, POS_MAX, moveangle);
   else
     ;
 }
 
 void sendDataPwm()
 {
-  char strdata[64] = "";
-  sprintf(strdata, "#1P%d#2P%d#3P%d", (int)anglePos[0], (int)anglePos[1], (int)anglePos[2]);
-  SoftSerial.println(strdata);
-  // Serial.println(strdata);
-  Setstart('0');
+  sprintf(m_strdata, "#1P%d#2P%d#3P%d#4P%d#5P%d#6P%d#7P%d#8P%d#9P%d#10P%d#11P%d#12P%d#13P%d#14P%d#15P%d#16P%d",
+          (int)m_anglePos[0], (int)m_anglePos[1], (int)m_anglePos[2], (int)m_anglePos[3],
+          (int)m_anglePos[4], (int)m_anglePos[5], (int)m_anglePos[6], (int)m_anglePos[7],
+          (int)m_anglePos[8], (int)m_anglePos[9], (int)m_anglePos[10], (int)m_anglePos[11],
+          (int)m_anglePos[12], (int)m_anglePos[13], (int)m_anglePos[14], (int)m_anglePos[15]);
+  SoftSerial.println(m_strdata);
+  sprintf(m_strdata, "#17P%d#18P%d#19P%d#20P%d#21P%d#22P%d#23P%d#24P%d#25P%d#26P%d#27P%d#28P%d#29P%d#30P%d#31P%d#32P%d",
+          (int)m_anglePos[16], (int)m_anglePos[17], (int)m_anglePos[18], (int)m_anglePos[19],
+          (int)m_anglePos[20], (int)m_anglePos[21], (int)m_anglePos[22], (int)m_anglePos[23],
+          (int)m_anglePos[24], (int)m_anglePos[25], (int)m_anglePos[26], (int)m_anglePos[27],
+          (int)m_anglePos[28], (int)m_anglePos[29], (int)m_anglePos[30], (int)m_anglePos[31]);
+  // Serial.println(m_strdata);
 }
 
 void load_main_gun()
 {
-  Load_pos();
-  switch (Getstart())
+  load_pos();
+  switch (get_start())
   {
   case '0': // 左
   case '1': // 右
   case '2': // 暂停
-    controlServoFront(ipos);
-    controlServoBack(ipos);
+    controlServoFront(m_ipos);
+    controlServoBack(m_ipos);
     break;
   case '3': // 回中
     controlServoFront(0);
@@ -178,25 +203,23 @@ void load_main_gun()
     break;
   }
   //_println_log(anglePos[0]);
-
-  sendDataPwm();
 }
 
 void controlServoDelay(const int &gunIndex, const double &pos, double delay)
 {
-  double temp = pos - anglePos[gunIndex];
+  double temp = pos - m_anglePos[gunIndex];
 
   if (temp > 0)
-    temp = anglePos[gunIndex] + delay;
+    temp = m_anglePos[gunIndex] + delay;
   else if (temp < 0)
-    temp = anglePos[gunIndex] - delay;
+    temp = m_anglePos[gunIndex] - delay;
   else
     temp = pos;
 
   if (POS_MAX < temp || POS_MIN > temp)
     return;
 
-  anglePos[gunIndex] = temp;
+  m_anglePos[gunIndex] = temp;
 }
 
 void controlServo(const int &gunIndex, const double &pos)
@@ -204,37 +227,37 @@ void controlServo(const int &gunIndex, const double &pos)
   if (POS_MAX < pos || POS_MIN > pos)
     return;
 
-  anglePos[gunIndex] = pos;
+  m_anglePos[gunIndex] = pos;
 }
 
-void Load_pos()
+void load_pos()
 {
   {
-    switch (Getstart())
+    switch (get_start())
     {
     case '0': // 左
-      ipos = ipos - moveipos;
+      m_ipos = m_ipos - moveipos;
       break;
     case '1': // 右
-      ipos = ipos + moveipos;
+      m_ipos = m_ipos + moveipos;
       break;
     case '2': // 暂停
       break;
     case '3': // 回中
-      ipos = 0;
+      m_ipos = 0;
       break;
     default:
       break;
     }
-    if (ipos >= 3600)
-      ipos = 0;
+    if (m_ipos >= 3600)
+      m_ipos = 0;
 
-    if (ipos < 0)
-      ipos = 3600;
+    if (m_ipos < 0)
+      m_ipos = 3600;
   }
 }
 
-void Load_Node_Data()
+void load_node_data()
 {
   // for (int i = 0; i < 2; i++)
   // {
@@ -244,8 +267,8 @@ void Load_Node_Data()
   //    break;
   //  }
   // }
-  Uart_Command_Rev();
-  if (recv_flag)
+  uart_command_rev();
+  if (m_recv_flag)
   {
     //     for (int i = 0; i < 10; i++)
     //     {
@@ -256,11 +279,11 @@ void Load_Node_Data()
     //      Serial.println("}   ");
     //     }
 
-    switch (inBuffer[1])
+    switch (m_inBuffer[1])
     {
     case '1': //  主炮转向
     {
-      Setstart(inBuffer[2]);
+      set_start(m_inBuffer[2]);
       // load_main_gun();
     }
     break;
@@ -273,63 +296,143 @@ void Load_Node_Data()
     default:
       break;
     }
-    checkTime[3] = micros();
-    memset(inBuffer, 0x00, sizeof(inBuffer));
+    checkTime[3] = millis();
+    memset(m_inBuffer, 0x00, sizeof(m_inBuffer));
   }
-  // 获取炮转状态
-  Load_pos();
 
-  if (micros() - checkTime[3] > 5000000)
+  if (millis() - checkTime[3] > 5000)
   {
     // 5s 内无信号
-    Setstart('3');
+    // set_start('3');
     // _println_log("TRS lost error");
   }
-  recv_flag = false;
+  m_recv_flag = false;
 }
 
-void Uart_Command_Rev()
+void uart_command_rev()
 {
 
   while (Serial.available() > 0)
   {
-    ch = Serial.read();
+    m_ch = Serial.read();
     // _print_log("CmdState:[");
     // _print_log(CmdState);
     // _print_log("]ch:[");
     //_print_log(ch);
     //_println_log("]");
-    switch (CmdState)
+    switch (m_cmdState)
     {
     /******** start *********/
     case 0:
     {
-      if (DEF_NODE_SST == ch)
+      if (DEF_NODE_SST == m_ch)
       {
-        bufferIndex = 0;
-        CmdState = 1;
+        m_bufferIndex = 0;
+        m_cmdState = 1;
       }
     }
     break;
     /******** data *********/
     case 1:
     {
-      if (DEF_NODE_END == ch)
+      if (DEF_NODE_END == m_ch)
       {
-        CmdState = 2;
+        m_cmdState = 2;
       }
-      bufferIndex++;
-      inBuffer[bufferIndex] = ch;
+      m_bufferIndex++;
+      m_inBuffer[m_bufferIndex] = m_ch;
     }
     break;
     /******** end *********/
     case 2:
     {
-      bufferIndex = 0;
-      recv_flag = true;
-      CmdState = 0;
+      m_bufferIndex = 0;
+      m_recv_flag = true;
+      m_cmdState = 0;
     }
     break;
     }
+  }
+}
+
+void funcasync(double angle, int i, int a, int timer)
+{
+  double pospitch = mapdouble(angle, GUN_PITCH_MIN, GUN_PITCH_MAX, m_angle_value[i][0], m_angle_value[i][1]);
+  if (m_anglePitch[i] == angle)
+  {
+    controlServoDelay(a, pospitch, 10);
+    pitch_time[i] = millis();
+  }
+  else if ((millis() - pitch_time[i]) > timer)
+  {
+    controlServoDelay(a, pospitch, 10);
+    m_anglePitch[i] = angle;
+  }
+
+  // _println_log(m_anglePos[a]);
+};
+
+void gun_pitch(char st, double angle, bool sync)
+{
+  auto func = [&](int i, int a)
+  {
+    m_anglePitch[i] = angle;
+    double pospitch = mapdouble(angle, GUN_PITCH_MIN, GUN_PITCH_MAX, m_angle_value[i][0], m_angle_value[i][1]);
+    controlServoDelay(a, pospitch, 10);
+  };
+  switch (st)
+  {
+  case 'a':
+  {
+    if (sync)
+    {
+      func(0, 1);
+      func(1, 2);
+      func(2, 3);
+    }
+    else
+    {
+      func(0, 1);
+      funcasync(angle, 1, 2, 4000);
+      funcasync(angle, 2, 3, 2000);
+    }
+  }
+  break;
+  case 'b':
+  {
+    if (sync)
+    {
+      func(3, 5);
+      func(4, 6);
+      func(5, 7);
+    }
+    else
+    {
+      func(4, 6);
+      funcasync(angle, 3, 5, 4000);
+      funcasync(angle, 5, 7, 2000);
+    }
+  }
+  break;
+  case 'c':
+  {
+    if (sync)
+    {
+      func(6, 9);
+      func(7, 10);
+      func(8, 11);
+    }
+    else
+    {
+      func(8, 11);
+      funcasync(angle, 6, 9, 4000);
+      funcasync(angle, 7, 10, 2000);
+    }
+  }
+  break;
+  case 'd':
+    break;
+  default:
+    break;
   }
 }
