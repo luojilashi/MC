@@ -1,5 +1,5 @@
 #pragma once
-// #define _DEBUG_ARD 1
+#define _DEBUG_ARD 1
 #define LOW_GRADE_1 900
 #define LOW_GRADE_2 1100
 #define MID_GRADE_1 1400
@@ -16,6 +16,9 @@
 #define _println_log(var)
 #define _print_log(var)
 #endif
+
+#define _START_LOOP checkTime[0] = micros();
+#define _END_LOOP delay_time(40);
 
 #define RISING_FUNC(indexNo)                                               \
     void rising_##indexNo()                                                \
@@ -87,7 +90,7 @@ void loadStart(int index)
     {
         // 左转,时间记录
         if (get_start() != '1')
-            checkTime[index] = millis();
+            checkTime[3] = millis();
 
         set_start('1');
     }
@@ -98,7 +101,7 @@ void loadStart(int index)
         {
             // 状态切换
             // 大200ms 暂停，反之回中
-            if (millis() - checkTime[index] > 200)
+            if (millis() - checkTime[3] > 200)
             {
                 set_start('2');
             }
@@ -107,7 +110,17 @@ void loadStart(int index)
                 set_start('3');
             }
             // 暂停或回中时间记录
-            checkTime[index] = millis();
+            checkTime[3] = millis();
         }
     }
+}
+
+void delay_time(unsigned long ms)
+{
+    uint32_t start = micros() - checkTime[0];
+    _println_log(start);
+    start = ms - start / 1000;
+    if (start > 0)
+        delay(start);
+    checkTime[0] = micros();
 }

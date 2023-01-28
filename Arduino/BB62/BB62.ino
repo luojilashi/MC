@@ -39,10 +39,11 @@ const double moveipos = moveangle * 1.1;
 
 double m_ipos = 0;
 double m_anglePos[32] = {0};
+uint32_t m_angleChangeBit = 0;
 int m_anglePitch[12] = {0};
 char m_strdata[256] = "";
-
 ////////////////////////////////////////////
+char strTempdata[16] = "";
 
 uint8_t m_inBuffer[10];   // 接收指令缓冲区
 int m_bufferIndex = 0;    // 接收指令字符计数
@@ -76,19 +77,18 @@ void setup()
 
   sendDataPwm();
   pinMode(7, OUTPUT);
-  delay(200);
+  delay(100);
 }
 
 // Add the main program code into the continuous loop() function
 void loop()
 {
-  _println_log(micros() - checkTime[2]);
-  checkTime[2] = micros();
+  _START_LOOP
   load_node_data();
   load_main_gun();
   TEXT_FUNC();
   sendDataPwm();
-  delay(25);
+  _END_LOOP
 }
 
 void TEXT_FUNC()
@@ -103,19 +103,21 @@ void TEXT_FUNC()
   int iii = int(asd) % (GUN_PITCH_MAX * 2);
   if (iii > GUN_PITCH_MAX)
   {
-    gun_pitch('a', GUN_PITCH_MAX, false);
-    gun_pitch('b', GUN_PITCH_MAX, false);
+    // set_start('1');
+    //  gun_pitch('a', GUN_PITCH_MAX, false);
+    //  gun_pitch('b', GUN_PITCH_MAX, false);
+    //  gun_pitch('C', GUN_PITCH_MAX, false);
   }
   else
   {
-    gun_pitch('a', GUN_PITCH_MIN, false);
-    gun_pitch('b', GUN_PITCH_MIN, false);
+    // gun_pitch('a', GUN_PITCH_MIN, false);
+    // gun_pitch('b', GUN_PITCH_MIN, false);
   }
 
   //  gun_pitch('a',GUN_PITCH_MIN, false);
 }
 
-void controlServoFront(double Fpos)
+void controlServoFront(double Fpos, uint8_t bitF = 0b11)
 {
   // 前有效0-135 225-360
   double pos = POS_MAX;
@@ -125,28 +127,36 @@ void controlServoFront(double Fpos)
     // 0-135
     // 右转
     pos = mapdouble(Fpos, 0, 1350, POS_MILL, POS_MIN);
-    controlServoDelay(0, pos, moveangle);
-    controlServoDelay(4, pos, moveangle);
+    if (bitRead(bitF, 0))
+      controlServoDelay(0, pos, moveangle);
+    if (bitRead(bitF, 1))
+      controlServoDelay(4, pos, moveangle);
   }
   else if (Fpos >= 2250 && Fpos <= 3600)
   {
     // 225-360
     // 左转
     pos = mapdouble(Fpos, 2250, 3600, POS_MAX, POS_MILL);
-    controlServoDelay(0, pos, moveangle);
-    controlServoDelay(4, pos, moveangle);
+    if (bitRead(bitF, 0))
+      controlServoDelay(0, pos, moveangle);
+    if (bitRead(bitF, 1))
+      controlServoDelay(4, pos, moveangle);
   }
   else if (Fpos > 1800 && Fpos < 2250)
   {
     // 左死区
-    controlServoDelay(0, pos, moveangle);
-    controlServoDelay(4, pos, moveangle);
+    if (bitRead(bitF, 0))
+      controlServoDelay(0, POS_MAX, moveangle);
+    if (bitRead(bitF, 1))
+      controlServoDelay(4, POS_MAX, moveangle);
   }
   else if (Fpos > 1350 && Fpos < 1800)
   {
     // 右死区
-    controlServoDelay(0, POS_MIN, moveangle);
-    controlServoDelay(4, POS_MIN, moveangle);
+    if (bitRead(bitF, 0))
+      controlServoDelay(0, POS_MIN, moveangle);
+    if (bitRead(bitF, 1))
+      controlServoDelay(4, POS_MIN, moveangle);
   }
   else
   {
@@ -159,7 +169,7 @@ void controlServoBack(double Bpos)
 {
   // 后有效 45-315
   if (Bpos >= 450 && Bpos <= 3150)
-    controlServo(8, mapdouble(Bpos, 450, 3150, POS_MAX, POS_MIN));
+    controlServoDelay(8, mapdouble(Bpos, 450, 3150, POS_MAX, POS_MIN), moveangle);
   else if (Bpos > 3150 && Bpos < 3600)
     controlServoDelay(8, POS_MIN, moveangle);
   else if (Bpos > 0 && Bpos < 450)
@@ -168,20 +178,34 @@ void controlServoBack(double Bpos)
     ;
 }
 
+void controlServoA(double Fpos)
+{
+  controlServoFront(Fpos, 0b1);
+}
+void controlServoB(double Fpos)
+{
+  controlServoFront(Fpos, 0b10);
+}
+void controlServoC(double Fpos)
+{
+  controlServoBack(Fpos);
+}
+
 void sendDataPwm()
 {
-  sprintf(m_strdata, "#1P%d#2P%d#3P%d#4P%d#5P%d#6P%d#7P%d#8P%d#9P%d#10P%d#11P%d#12P%d#13P%d#14P%d#15P%d#16P%d",
-          (int)m_anglePos[0], (int)m_anglePos[1], (int)m_anglePos[2], (int)m_anglePos[3],
-          (int)m_anglePos[4], (int)m_anglePos[5], (int)m_anglePos[6], (int)m_anglePos[7],
-          (int)m_anglePos[8], (int)m_anglePos[9], (int)m_anglePos[10], (int)m_anglePos[11],
-          (int)m_anglePos[12], (int)m_anglePos[13], (int)m_anglePos[14], (int)m_anglePos[15]);
+  memset(m_strdata, 0x0, sizeof(m_strdata));
+  for (size_t i = 0; i < 32; i++)
+  {
+    if (!bitRead(m_angleChangeBit, i))
+      continue;
+
+    memset(strTempdata, 0x00, sizeof(strTempdata));
+    sprintf(strTempdata, "#%dP%d", i + 1, (int)m_anglePos[i]);
+    strcat(m_strdata, strTempdata);
+  }
   SoftSerial.println(m_strdata);
-  sprintf(m_strdata, "#17P%d#18P%d#19P%d#20P%d#21P%d#22P%d#23P%d#24P%d#25P%d#26P%d#27P%d#28P%d#29P%d#30P%d#31P%d#32P%d",
-          (int)m_anglePos[16], (int)m_anglePos[17], (int)m_anglePos[18], (int)m_anglePos[19],
-          (int)m_anglePos[20], (int)m_anglePos[21], (int)m_anglePos[22], (int)m_anglePos[23],
-          (int)m_anglePos[24], (int)m_anglePos[25], (int)m_anglePos[26], (int)m_anglePos[27],
-          (int)m_anglePos[28], (int)m_anglePos[29], (int)m_anglePos[30], (int)m_anglePos[31]);
-  // Serial.println(m_strdata);
+  _println_log(m_strdata);
+  m_angleChangeBit = 0;
 }
 
 void load_main_gun()
@@ -191,9 +215,10 @@ void load_main_gun()
   {
   case '0': // 左
   case '1': // 右
-  case '2': // 暂停
     controlServoFront(m_ipos);
     controlServoBack(m_ipos);
+    break;
+  case '2': // 暂停
     break;
   case '3': // 回中
     controlServoFront(0);
@@ -208,7 +233,6 @@ void load_main_gun()
 void controlServoDelay(const int &gunIndex, const double &pos, double delay)
 {
   double temp = pos - m_anglePos[gunIndex];
-
   if (temp > 0)
     temp = m_anglePos[gunIndex] + delay;
   else if (temp < 0)
@@ -219,6 +243,8 @@ void controlServoDelay(const int &gunIndex, const double &pos, double delay)
   if (POS_MAX < temp || POS_MIN > temp)
     return;
 
+  if (m_anglePos[gunIndex] != temp)
+    bitSet(m_angleChangeBit, gunIndex);
   m_anglePos[gunIndex] = temp;
 }
 
@@ -227,6 +253,8 @@ void controlServo(const int &gunIndex, const double &pos)
   if (POS_MAX < pos || POS_MIN > pos)
     return;
 
+  if (m_anglePos[gunIndex] != pos)
+    bitSet(m_angleChangeBit, gunIndex);
   m_anglePos[gunIndex] = pos;
 }
 
@@ -296,11 +324,11 @@ void load_node_data()
     default:
       break;
     }
-    checkTime[3] = millis();
+    checkTime[2] = millis();
     memset(m_inBuffer, 0x00, sizeof(m_inBuffer));
   }
 
-  if (millis() - checkTime[3] > 5000)
+  if (millis() - checkTime[2] > 5000)
   {
     // 5s 内无信号
     // set_start('3');
