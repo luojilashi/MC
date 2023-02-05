@@ -15,32 +15,41 @@
 // Define Functions below here or use other .ino or cpp files
 //
 
-#include <Wire.h>
 #include <SoftwareSerial.h>
 #include "defineData.h"
 
-const double POS_MIN = 700;
+const double POS_MIN = 650;
 const double POS_MILL = 1500;
-const double POS_MAX = 2300;
+const double POS_MAX = 2350;
 const int GUN_PITCH_MAX = 400;
 const int GUN_PITCH_MIN = -50;
-const byte PWM_PIN = 2;
-const byte gun_PIN = 3;
+
+// RC pwm 信号
+const byte PWM_PIN = 4;
+const byte gun_PIN = 5;
+const byte gupitch_PIN = 6;
+// ttl 数据
+const byte soft_rx_PIN = 2;
+const byte soft_tx_PIN = 3;
+
+// led灯
+const byte led_PIN = 13;
+
 const int m_angle_value[12][2] = {{1374, 2248}, {1874, 1068}, {1731, 922}, {1196, 2015}, {1895, 1185}, {1783, 887}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
 
 #ifdef _DEBUG_ARD
-const double moveangle = 2; // 0.035 no log
+const double moveangle = 10; // 0.035 no log
 #else
-double moveangle = 3;
+double moveangle = 10;
 #endif
-const double moveipos = moveangle * 1.1;
+const double moveipos = moveangle * 1.05;
 
 ////////////////////////////////
 
 double m_ipos = 0;
 double m_anglePos[32] = {0};
 uint32_t m_angleChangeBit = 0;
-int m_anglePitch[12] = {0};
+uint32_t m_anglePitch[12] = {0};
 char m_strdata[256] = "";
 ////////////////////////////////////////////
 char strTempdata[16] = "";
@@ -52,32 +61,34 @@ bool m_recv_flag = false; // 指令接收成功标志位
 int m_cmdState;           // 指令接收状态
 ////////////////////////////////////////////////////////////
 
-SoftwareSerial SoftSerial(4, 5); // RX, TX
+SoftwareSerial SoftSerial(soft_rx_PIN, soft_tx_PIN); // RX, TX
 RISING_FUNC(0)
 FALLING_FUNC(0)
 RISING_FUNC(1)
 FALLING_FUNC(1)
+RISING_FUNC(2)
+FALLING_FUNC(2)
+DATA(char, start, '3')       // 0 左 1 右 2 停 3 中
+DATA(uint32_t, pitch, 1500)  // 俯仰
+DATA(char, other_start, '2') // 其他状态+
 
 void setup()
 {
-  Serial.begin(115200);
+  delay(500);
+  Serial1.begin(115200);
   SoftSerial.begin(115200);
-  Serial.println("16 channel PWM test!");
-
-  pinMode(PWM_PIN, INPUT_PULLUP);
-  pinMode(gun_PIN, INPUT_PULLUP);
   // when pin D2 goes high, call the rising function
-  digital_Pin[0] = digitalPinToInterrupt(PWM_PIN);
-  digital_Pin[1] = digitalPinToInterrupt(gun_PIN);
-  attachInterrupt(digital_Pin[0], rising_0, RISING);
-  attachInterrupt(digital_Pin[1], rising_1, RISING);
-  set_start('3');
+  REGISTERED_FUNC(0, PWM_PIN);
+  REGISTERED_FUNC(1, gun_PIN);
+  REGISTERED_FUNC(2, gupitch_PIN);
+
+  pinMode(led_PIN, OUTPUT);
+
   for (int i = 0; i < 32; i++)
     m_anglePos[i] = POS_MILL;
 
   sendDataPwm();
-  pinMode(7, OUTPUT);
-  delay(100);
+  delay(500);
 }
 
 // Add the main program code into the continuous loop() function
@@ -94,27 +105,46 @@ void loop()
 void TEXT_FUNC()
 {
 #ifdef _DEBUG_ARD
+  // _print_log("get_start:");
+  // _println_log(get_start());
 
+  // _print_log("get_pitch:");
+  // _println_log(get_pitch());
+
+  // _print_log("get_other_start:");
+  // _println_log(get_other_start());
+
+  // _print_log("pwm_value0:");
+  // _print_log(pwm_value[0]);
+
+  // _print_log(" pwm_value1:");
+  // _print_log(pwm_value[1]);
+
+  // _print_log(" pwm_value2:");
+  // _print_log(pwm_value[2]);
+
+  // _print_log(" pwm_value3:");
+  // _println_log(pwm_value[3]);
+
+  // double asd = micros() / 30000;
+  // int iii = int(asd) % (GUN_PITCH_MAX * 2);
+  // if (iii > GUN_PITCH_MAX)
+  // {
+  //   // set_start('1');
+  //   //  gun_pitch('a', GUN_PITCH_MAX, false);
+  //   //  gun_pitch('b', GUN_PITCH_MAX, false);
+  //   //  gun_pitch('C', GUN_PITCH_MAX, false);
+  // }
+  // else
+  // {
+  //   // gun_pitch('a', GUN_PITCH_MIN, false);
+  //   // gun_pitch('b', GUN_PITCH_MIN, false);
+  // }
+
+  //  gun_pitch('a',GUN_PITCH_MIN, false);
 #else
 
 #endif
-  set_start('3');
-  double asd = micros() / 30000;
-  int iii = int(asd) % (GUN_PITCH_MAX * 2);
-  if (iii > GUN_PITCH_MAX)
-  {
-    // set_start('1');
-    //  gun_pitch('a', GUN_PITCH_MAX, false);
-    //  gun_pitch('b', GUN_PITCH_MAX, false);
-    //  gun_pitch('C', GUN_PITCH_MAX, false);
-  }
-  else
-  {
-    // gun_pitch('a', GUN_PITCH_MIN, false);
-    // gun_pitch('b', GUN_PITCH_MIN, false);
-  }
-
-  //  gun_pitch('a',GUN_PITCH_MIN, false);
 }
 
 void controlServoFront(double Fpos, uint8_t bitF = 0b11)
@@ -203,13 +233,14 @@ void sendDataPwm()
     sprintf(strTempdata, "#%dP%d", i + 1, (int)m_anglePos[i]);
     strcat(m_strdata, strTempdata);
   }
-  SoftSerial.println(m_strdata);
   _println_log(m_strdata);
+  SoftSerial.println(m_strdata);
   m_angleChangeBit = 0;
 }
 
 void load_main_gun()
 {
+  load_start();
   load_pos();
   switch (get_start())
   {
@@ -227,12 +258,17 @@ void load_main_gun()
   default:
     break;
   }
-  //_println_log(anglePos[0]);
+
+  int pospitch = mapdouble(m_pitch, LOW_GRADE_1, HIGH_GRADE_2, GUN_PITCH_MIN, GUN_PITCH_MAX);
+  // gun_pitch_pos('a', pitch, true);
+  gun_pitch('b', pospitch, false);
+  // gun_pitch_pos('C', pitch, true);
 }
 
-void controlServoDelay(const int &gunIndex, const double &pos, double delay)
+void controlServoDelay(const int gunIndex, double pos, double delay)
 {
-  double temp = pos - m_anglePos[gunIndex];
+  pos = int(pos / delay) * delay;
+  int temp = pos - m_anglePos[gunIndex];
   if (temp > 0)
     temp = m_anglePos[gunIndex] + delay;
   else if (temp < 0)
@@ -383,8 +419,24 @@ void uart_command_rev()
   }
 }
 
-void funcasync(double angle, int i, int a, int timer)
+void func(double angle, byte i, byte a)
 {
+  _print_log("func ");
+  _print_log(angle);
+  m_anglePitch[i] = int(angle / 10) * 10;
+  _print_log(" func/10 ");
+  _print_log(m_anglePitch[i]);
+  uint32_t pospitch = mapdouble(m_anglePitch[i], GUN_PITCH_MIN, GUN_PITCH_MAX, m_angle_value[i][0], m_angle_value[i][1]);
+  _print_log(" pospitch ");
+  _print_log(pospitch);
+  controlServoDelay(a, pospitch, 10);
+  _print_log(" m_anglePos ");
+  _println_log(m_anglePos[a]);
+};
+
+void funcasync(double angle, byte i, byte a, unsigned long timer)
+{
+  angle = int(angle / 10) * 10;
   double pospitch = mapdouble(angle, GUN_PITCH_MIN, GUN_PITCH_MAX, m_angle_value[i][0], m_angle_value[i][1]);
   if (m_anglePitch[i] == angle)
   {
@@ -396,33 +448,25 @@ void funcasync(double angle, int i, int a, int timer)
     controlServoDelay(a, pospitch, 10);
     m_anglePitch[i] = angle;
   }
-
-  // _println_log(m_anglePos[a]);
 };
 
 void gun_pitch(char st, double angle, bool sync)
 {
-  auto func = [&](int i, int a)
-  {
-    m_anglePitch[i] = angle;
-    double pospitch = mapdouble(angle, GUN_PITCH_MIN, GUN_PITCH_MAX, m_angle_value[i][0], m_angle_value[i][1]);
-    controlServoDelay(a, pospitch, 10);
-  };
   switch (st)
   {
   case 'a':
   {
     if (sync)
     {
-      func(0, 1);
-      func(1, 2);
-      func(2, 3);
+      func(angle, 0, 1);
+      func(angle, 1, 2);
+      func(angle, 2, 3);
     }
     else
     {
-      func(0, 1);
-      funcasync(angle, 1, 2, 4000);
-      funcasync(angle, 2, 3, 2000);
+      func(angle, 0, 1);
+      funcasync(angle, 1, 2, 2500);
+      funcasync(angle, 2, 3, 1250);
     }
   }
   break;
@@ -430,15 +474,15 @@ void gun_pitch(char st, double angle, bool sync)
   {
     if (sync)
     {
-      func(3, 5);
-      func(4, 6);
-      func(5, 7);
+      func(angle, 3, 5);
+      func(angle, 4, 6);
+      func(angle, 5, 7);
     }
     else
     {
-      func(4, 6);
-      funcasync(angle, 3, 5, 4000);
-      funcasync(angle, 5, 7, 2000);
+      func(angle, 4, 6);
+      funcasync(angle, 3, 5, 2500);
+      funcasync(angle, 5, 7, 1250);
     }
   }
   break;
@@ -446,15 +490,15 @@ void gun_pitch(char st, double angle, bool sync)
   {
     if (sync)
     {
-      func(6, 9);
-      func(7, 10);
-      func(8, 11);
+      func(angle, 6, 9);
+      func(angle, 7, 10);
+      func(angle, 8, 11);
     }
     else
     {
-      func(8, 11);
-      funcasync(angle, 6, 9, 4000);
-      funcasync(angle, 7, 10, 2000);
+      func(angle, 8, 11);
+      funcasync(angle, 6, 9, 2500);
+      funcasync(angle, 7, 10, 1250);
     }
   }
   break;
@@ -462,5 +506,63 @@ void gun_pitch(char st, double angle, bool sync)
     break;
   default:
     break;
+  }
+}
+
+void load_start()
+{
+  if (pwm_value[0] > LOW_GRADE_1 && pwm_value[0] < LOW_GRADE_2)
+  {
+    // 右转,时间记录
+    if (get_start() != '0')
+      checkTime[3] = millis();
+
+    set_start('0');
+  }
+  else if (pwm_value[0] > HIGH_GRADE_1 && pwm_value[0] < HIGH_GRADE_2)
+  {
+    // 左转,时间记录
+    if (get_start() != '1')
+      checkTime[3] = millis();
+
+    set_start('1');
+  }
+  else if (pwm_value[0] > MID_GRADE_1 && pwm_value[0] < MID_GRADE_2)
+  {
+    // 2 停 3 中
+    if (get_start() != '2' && get_start() != '3')
+    {
+      // 状态切换
+      // 大200ms 暂停，反之回中
+      if (millis() - checkTime[3] > 200)
+      {
+        set_start('2');
+      }
+      else
+      {
+        set_start('3');
+      }
+      // 暂停或回中时间记录
+      checkTime[3] = millis();
+    }
+  }
+  // 俯仰
+  if (pwm_value[1] > LOW_GRADE_1 && pwm_value[1] < HIGH_GRADE_2)
+  {
+    set_pitch(pwm_value[1]);
+  }
+
+  // 其他功能
+  if (pwm_value[2] > LOW_GRADE_1 && pwm_value[2] < LOW_GRADE_2)
+  {
+    set_other_start('0');
+  }
+  else if (pwm_value[2] > HIGH_GRADE_1 && pwm_value[2] < HIGH_GRADE_2)
+  {
+    set_other_start('1');
+  }
+  else if (pwm_value[2] > MID_GRADE_1 && pwm_value[2] < MID_GRADE_2)
+  {
+    set_other_start('2');
   }
 }

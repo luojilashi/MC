@@ -1,10 +1,10 @@
 #include <SoftwareSerial.h>
 #include "defineData.h"
 
-RISING_FUNC(0)
-FALLING_FUNC(0)
-RISING_FUNC(1)
-FALLING_FUNC(1)
+RISING_FUNC(4)
+FALLING_FUNC(4)
+RISING_FUNC(5)
+FALLING_FUNC(5)
 RISING_FUNC(2)
 FALLING_FUNC(2)
 RISING_FUNC(3)
@@ -27,20 +27,20 @@ void setup()
     digital_Pin[i] = digitalPinToInterrupt(i);
   }
 
-  REGISTERED_FUNC(0)
-  REGISTERED_FUNC(1)
+  REGISTERED_FUNC(4)
+  REGISTERED_FUNC(5)
   REGISTERED_FUNC(2)
   REGISTERED_FUNC(3)
 
-  cSerial.println("Start serial");
+  Serial.println("Start serial");
 }
 
 void loop()
 {
-  loadStart();
+  // loadStart();
   //Serial.println(Getstart());
-  //TextFunc();
-  LoadData();
+  TextFunc();
+  // LoadData();
 }
 
 void TextFunc() {
