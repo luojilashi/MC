@@ -14,7 +14,6 @@
 
 // Define Functions below here or use other .ino or cpp files
 //
-
 #include <SoftwareSerial.h>
 #include "defineData.h"
 
@@ -35,19 +34,19 @@ const byte soft_tx_PIN = 3;
 // led灯
 const byte led_PIN = 13;
 
-const int m_angle_value[12][10] = 
-{{0000, 0000,0000,0000,0000,0000,0000,0000,0000,0000}, 
-{0000, 0000,0000,0000,0000,0000,0000,0000,0000,0000}, 
-{0000, 0000,0000,0000,0000,0000,0000,0000,0000,0000}, 
-{1160, 1220,1309,1447,1513,1642,1746,1844,1940,2005}, 
-{1885, 1847,1768,1649,1574,1466,1392,1303,1212,1186}, 
-{1795, 1719,1646,1513,1436,1293,1185,1077,938,886}, 
-{0000, 0000,0000,0000,0000,0000,0000,0000,0000,0000}, 
-{0000, 0000,0000,0000,0000,0000,0000,0000,0000,0000}, 
-{0000, 0000,0000,0000,0000,0000,0000,0000,0000,0000}, 
-{0000, 0000,0000,0000,0000,0000,0000,0000,0000,0000},  
-{0000, 0000,0000,0000,0000,0000,0000,0000,0000,0000}, 
-{0000, 0000,0000,0000,0000,0000,0000,0000,0000,0000}};
+const int m_angle_value[12][10] =
+    {{1290, 1380, 1540, 1660, 1760, 1760, 1950, 2020, 2070, 2150},
+     {1870, 1810, 1620, 1530, 1410, 1310, 1230, 1180, 1120, 1060},
+     {1710, 1680, 1530, 1440, 1330, 1250, 1140, 1080, 1000, 920},
+     {1280, 1360, 1470, 1590, 1680, 1770, 1860, 1940, 2030, 2120},
+     {1890, 1800, 1680, 1590, 1500, 1410, 1350, 1270, 1200, 1130},
+     {1720, 1650, 1510, 1390, 1270, 1160, 1070, 980, 900, 800},
+     {0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000},
+     {0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000},
+     {0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000},
+     {0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000},
+     {0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000},
+     {0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000}};
 
 #ifdef _DEBUG_ARD
 const double moveangle = 10; // 0.035 no log
@@ -211,9 +210,9 @@ void controlServoBack(double Bpos)
 {
   // 后有效 45-315
   if (Bpos >= 450 && Bpos <= 3150)
-    controlServoDelay(8, mapdouble(Bpos, 450, 3150, POS_MAX, POS_MIN), moveangle);
-  else if (Bpos > 3150 && Bpos < 3600)
     controlServoDelay(8, POS_MIN, moveangle);
+  else if (Bpos > 3150 && Bpos < 3600)
+    controlServoDelay(8, mapdouble(Bpos, 450, 3150, POS_MAX, POS_MIN), moveangle);
   else if (Bpos > 0 && Bpos < 450)
     controlServoDelay(8, POS_MAX, moveangle);
   else
@@ -258,11 +257,11 @@ void load_main_gun()
   {
   case '0': // 左
   case '1': // 右
+  case '2': // 暂停
     controlServoFront(m_ipos);
     controlServoBack(m_ipos);
     break;
-  case '2': // 暂停
-    break;
+
   case '3': // 回中
     controlServoFront(0);
     controlServoBack(1800);
@@ -270,9 +269,15 @@ void load_main_gun()
   default:
     break;
   }
+  int pospitch = 0;
+  if (m_pitch < LOW_GRADE_2)
+    pospitch = 0;
+  else if (m_pitch > HIGH_GRADE_1)
+    pospitch = GUN_PITCH_MAX;
+  else
+    pospitch = mapdouble(m_pitch, LOW_GRADE_2, HIGH_GRADE_1, 0, GUN_PITCH_MAX);
 
-  int pospitch = mapdouble(m_pitch, LOW_GRADE_1, HIGH_GRADE_2, GUN_PITCH_MIN, GUN_PITCH_MAX);
-  // gun_pitch_pos('a', pitch, true);
+  gun_pitch('a', pospitch, false);
   gun_pitch('b', pospitch, false);
   // gun_pitch_pos('C', pitch, true);
 }
@@ -438,7 +443,27 @@ void func(double angle, byte i, byte a)
   m_anglePitch[i] = int(angle / 10) * 10;
   _print_log(" func/10 ");
   _print_log(m_anglePitch[i]);
-  uint32_t pospitch = mapdouble(m_anglePitch[i], GUN_PITCH_MIN, GUN_PITCH_MAX, m_angle_value[i][0], m_angle_value[i][1]);
+  uint32_t pospitch = 0;
+  if (angle < 0 && angle >= GUN_PITCH_MIN)
+  {
+    pospitch = mapdouble(angle, GUN_PITCH_MIN, GUN_PITCH_MAX, m_angle_value[i][0], m_angle_value[i][1]);
+  }
+  else if (angle > GUN_PITCH_MAX)
+  {
+    pospitch = m_angle_value[i][9];
+  }
+  else if (angle < GUN_PITCH_MIN)
+  {
+    pospitch = m_angle_value[i][0];
+  }
+  else
+  {
+    int index = angle / 50 + 1;
+    pospitch = mapdouble(angle, GUN_PITCH_MIN, GUN_PITCH_MAX, m_angle_value[i][index], m_angle_value[i][index + 1]);
+    _print_log(" index ");
+    _print_log(index);
+  }
+
   _print_log(" pospitch ");
   _print_log(pospitch);
   controlServoDelay(a, pospitch, 10);
@@ -449,7 +474,25 @@ void func(double angle, byte i, byte a)
 void funcasync(double angle, byte i, byte a, unsigned long timer)
 {
   angle = int(angle / 10) * 10;
-  double pospitch = mapdouble(angle, GUN_PITCH_MIN, GUN_PITCH_MAX, m_angle_value[i][0], m_angle_value[i][1]);
+  uint32_t pospitch = 0;
+  if (angle < 0 && angle >= GUN_PITCH_MIN)
+  {
+    pospitch = mapdouble(angle, GUN_PITCH_MIN, GUN_PITCH_MAX, m_angle_value[i][0], m_angle_value[i][1]);
+  }
+  else if (angle > GUN_PITCH_MAX)
+  {
+    pospitch = m_angle_value[i][9];
+  }
+  else if (angle < GUN_PITCH_MIN)
+  {
+    pospitch = m_angle_value[i][0];
+  }
+  else
+  {
+    int index = angle / 50 + 1;
+    pospitch = mapdouble(angle, GUN_PITCH_MIN, GUN_PITCH_MAX, m_angle_value[i][index], m_angle_value[i][index + 1]);
+  }
+
   if (m_anglePitch[i] == angle)
   {
     controlServoDelay(a, pospitch, 10);
@@ -523,6 +566,8 @@ void gun_pitch(char st, double angle, bool sync)
 
 void load_start()
 {
+  _print_log("pwm_value ");
+  _println_log(pwm_value[0]);
   if (pwm_value[0] > LOW_GRADE_1 && pwm_value[0] < LOW_GRADE_2)
   {
     // 右转,时间记录

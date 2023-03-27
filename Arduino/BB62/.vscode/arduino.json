@@ -1,0 +1,7 @@
+{
+    "port": "COM3",
+    "configuration": "mode=off",
+    "board": "thinary:avr:nona4808",
+    "programmer": "medbg",
+    "sketch": "BB62.ino"
+}

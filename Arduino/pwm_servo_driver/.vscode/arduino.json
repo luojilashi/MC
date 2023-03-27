@@ -1,0 +1,6 @@
+{
+    "port": "COM14",
+    "board": "arduino:avr:nano",
+    "sketch": "pwm_servo_driver.ino",
+    "configuration": "cpu=atmega328"
+}

@@ -10,8 +10,8 @@
 #define DEF_NODE_END 0XFF
 
 #ifdef _DEBUG_ARD
-#define _println_log(...){ Serial1.println(__VA_ARGS__)};
-#define _print_log(...) {Serial1.print(__VA_ARGS__)};
+#define _println_log(...){ Serial1.println(__VA_ARGS__);}
+#define _print_log(...) {Serial1.print(__VA_ARGS__);}
 #else
 #define _println_log(...){}
 #define _print_log(...){}
