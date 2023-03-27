@@ -17,11 +17,19 @@
 #include <SoftwareSerial.h>
 #include "defineData.h"
 
-const double POS_MIN = 650;
 const double POS_MILL = 1500;
-const double POS_MAX = 2350;
+const double POS_MAX = 2380;
 const int GUN_PITCH_MAX = 400;
 const int GUN_PITCH_MIN = -50;
+
+
+const double ANGLE_0 = 0;
+const double ANGLE_1 = 580;
+const double ANGLE_2 = 1220;
+const double ANGLE_3 = 1800;
+const double ANGLE_4 = 2380;
+const double ANGLE_5 = 3020;
+const double ANGLE_6 = 3600;
 
 // RC pwm 信号
 const byte PWM_PIN = 4;
@@ -162,28 +170,28 @@ void controlServoFront(double Fpos, uint8_t bitF = 0b11)
 {
   // 前有效0-135 225-360
   double pos = POS_MAX;
-  if (Fpos >= 0 && Fpos <= 1350)
+  if (Fpos >= ANGLE_0 && Fpos <= ANGLE_2)
   {
     // Serial.println(mapdouble(Fpos, 0, 1350, POS_MILL, POS_MIN));
     // 0-135
     // 右转
-    pos = mapdouble(Fpos, 0, 1350, POS_MILL, POS_MIN);
+    pos = mapdouble(Fpos, ANGLE_0, ANGLE_2, POS_MILL, POS_MIN);
     if (bitRead(bitF, 0))
       controlServoDelay(0, pos, moveangle);
     if (bitRead(bitF, 1))
       controlServoDelay(4, pos, moveangle);
   }
-  else if (Fpos >= 2250 && Fpos <= 3600)
+  else if (Fpos >= ANGLE_4 && Fpos <= ANGLE_6)
   {
     // 225-360
     // 左转
-    pos = mapdouble(Fpos, 2250, 3600, POS_MAX, POS_MILL);
+    pos = mapdouble(Fpos, ANGLE_4, ANGLE_6, POS_MAX, POS_MILL);
     if (bitRead(bitF, 0))
       controlServoDelay(0, pos, moveangle);
     if (bitRead(bitF, 1))
       controlServoDelay(4, pos, moveangle);
   }
-  else if (Fpos > 1800 && Fpos < 2250)
+  else if (Fpos > ANGLE_3 && Fpos < ANGLE_4)
   {
     // 左死区
     if (bitRead(bitF, 0))
@@ -191,7 +199,7 @@ void controlServoFront(double Fpos, uint8_t bitF = 0b11)
     if (bitRead(bitF, 1))
       controlServoDelay(4, POS_MAX, moveangle);
   }
-  else if (Fpos > 1350 && Fpos < 1800)
+  else if (Fpos > ANGLE_2 && Fpos < ANGLE_3)
   {
     // 右死区
     if (bitRead(bitF, 0))
@@ -209,12 +217,12 @@ void controlServoFront(double Fpos, uint8_t bitF = 0b11)
 void controlServoBack(double Bpos)
 {
   // 后有效 45-315
-  if (Bpos >= 450 && Bpos <= 3150)
-    controlServoDelay(8, POS_MIN, moveangle);
-  else if (Bpos > 3150 && Bpos < 3600)
-    controlServoDelay(8, mapdouble(Bpos, 450, 3150, POS_MAX, POS_MIN), moveangle);
-  else if (Bpos > 0 && Bpos < 450)
+  if (Bpos >= ANGLE_1 && Bpos <= ANGLE_5)
+    controlServoDelay(8, mapdouble(Bpos, ANGLE_1, ANGLE_5, POS_MIN, POS_MAX), moveangle);
+  else if (Bpos > ANGLE_5 && Bpos < ANGLE_6)
     controlServoDelay(8, POS_MAX, moveangle);
+  else if (Bpos > ANGLE_0 && Bpos < ANGLE_1)
+    controlServoDelay(8, POS_MIN, moveangle);
   else
     ;
 }
