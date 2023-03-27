@@ -17,6 +17,7 @@
 #include <SoftwareSerial.h>
 #include "defineData.h"
 
+const double POS_MIN = 620;
 const double POS_MILL = 1500;
 const double POS_MAX = 2380;
 const int GUN_PITCH_MAX = 400;
