@@ -10,14 +10,27 @@
 #define DEF_NODE_END 0XFF
 
 #ifdef _DEBUG_ARD
-#define _println_log(...){ Serial1.println(__VA_ARGS__);}
-#define _print_log(...) {Serial1.print(__VA_ARGS__);}
+#define _println_log(...)             \
+    {                                 \
+        Serial1.println(__VA_ARGS__); \
+    }
+#define _print_log(...)             \
+    {                               \
+        Serial1.print(__VA_ARGS__); \
+    }
 #else
-#define _println_log(...){}
-#define _print_log(...){}
+#define _println_log(...) \
+    {                     \
+    }
+#define _print_log(...) \
+    {                   \
+    }
 #endif
 
-#define _START_LOOP checkTime[0] = micros();
+#define _START_LOOP          \
+    checkTime[0] = micros(); \
+    digitalWrite(13, HIGH);
+
 #define _END_LOOP delay_time(50);
 
 #define RISING_FUNC(indexNo)                                               \
@@ -81,6 +94,7 @@ void delay_time(unsigned long ms)
 {
     uint32_t start = micros() - checkTime[0];
     // _println_log(start);
+    digitalWrite(13, LOW);
     start = ms - start / 1000;
     if (start > 0)
         delay(start);

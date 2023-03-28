@@ -23,7 +23,6 @@ const double POS_MAX = 2380;
 const int GUN_PITCH_MAX = 400;
 const int GUN_PITCH_MIN = -50;
 
-
 const double ANGLE_0 = 0;
 const double ANGLE_1 = 580;
 const double ANGLE_2 = 1220;
@@ -50,9 +49,9 @@ const int m_angle_value[12][10] =
      {1280, 1360, 1470, 1590, 1680, 1770, 1860, 1940, 2030, 2120},
      {1890, 1800, 1680, 1590, 1500, 1410, 1350, 1270, 1200, 1130},
      {1720, 1650, 1510, 1390, 1270, 1160, 1070, 980, 900, 800},
-     {0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000},
-     {0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000},
-     {0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000},
+     {1950, 1820, 1571, 1455, 1385, 1323, 1182, 1140, 1077, 980},
+     {1729, 1645, 1482, 1372, 1310, 1260, 1127, 1070, 1026, 924},
+     {1326, 1428, 1623, 1738, 1798, 1850, 1980, 2045, 2105, 2218},
      {0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000},
      {0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000},
      {0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000, 0000}};
@@ -101,12 +100,14 @@ void setup()
   REGISTERED_FUNC(0, PWM_PIN);
   REGISTERED_FUNC(1, gun_PIN);
   REGISTERED_FUNC(2, gupitch_PIN);
-
+  attachFunc();
+  digitalWrite(13, LOW);
   pinMode(led_PIN, OUTPUT);
 
   for (int i = 0; i < 32; i++)
     m_anglePos[i] = POS_MILL;
 
+  set_start('3');
   sendDataPwm();
   delay(500);
 }
@@ -260,7 +261,6 @@ void sendDataPwm()
 
 void load_main_gun()
 {
-  load_start();
   load_pos();
   switch (get_start())
   {
@@ -288,7 +288,7 @@ void load_main_gun()
 
   gun_pitch('a', pospitch, false);
   gun_pitch('b', pospitch, false);
-  // gun_pitch_pos('C', pitch, true);
+  gun_pitch('c', pospitch, false);
 }
 
 void controlServoDelay(const int gunIndex, double pos, double delay)
@@ -631,4 +631,22 @@ void load_start()
   {
     set_other_start('2');
   }
+}
+
+void fallingfuc()
+{
+  attachInterrupt(13, risingfuc, CHANGE);
+  load_start();
+}
+
+void risingfuc()
+{
+  attachInterrupt(13, risingfuc, CHANGE);
+  load_start();
+}
+
+void attachFunc()
+{
+  pinMode(13, INPUT_PULLUP);
+  attachInterrupt(13, risingfuc, CHANGE);
 }
