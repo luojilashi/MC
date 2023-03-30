@@ -17,18 +17,18 @@
 #include <SoftwareSerial.h>
 #include "defineData.h"
 
-const double POS_MIN = 620;
+const double POS_MIN = 540;
 const double POS_MILL = 1500;
-const double POS_MAX = 2380;
+const double POS_MAX = 2460;
 const int GUN_PITCH_MAX = 400;
 const int GUN_PITCH_MIN = -50;
 
 const double ANGLE_0 = 0;
-const double ANGLE_1 = 580;
-const double ANGLE_2 = 1220;
+const double ANGLE_1 = 520;
+const double ANGLE_2 = 1280;
 const double ANGLE_3 = 1800;
-const double ANGLE_4 = 2380;
-const double ANGLE_5 = 3020;
+const double ANGLE_4 = 2320;
+const double ANGLE_5 = 3080;
 const double ANGLE_6 = 3600;
 
 // RC pwm 信号
