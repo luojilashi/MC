@@ -1,5 +1,5 @@
 #pragma once
-// #define _DEBUG_ARD 1
+#define _DEBUG_ARD 1
 #define LOW_GRADE_1 900
 #define LOW_GRADE_2 1100
 #define MID_GRADE_1 1400
@@ -10,6 +10,10 @@
 #define DEF_NODE_END 0XFF
 
 #ifdef _DEBUG_ARD
+#define _println_int(...)      \
+    {                          \
+        Serial1.begin(115200); \
+    }
 #define _println_log(...)             \
     {                                 \
         Serial1.println(__VA_ARGS__); \
@@ -24,6 +28,9 @@
     }
 #define _print_log(...) \
     {                   \
+    }
+#define _println_int() \
+    {                  \
     }
 #endif
 

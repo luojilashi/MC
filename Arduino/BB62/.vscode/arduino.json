@@ -1,5 +1,5 @@
 {
-    "port": "COM3",
+    "port": "COM5",
     "configuration": "mode=off",
     "board": "thinary:avr:nona4808",
     "programmer": "medbg",

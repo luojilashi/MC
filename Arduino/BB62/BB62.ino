@@ -17,9 +17,9 @@
 #include <SoftwareSerial.h>
 #include "defineData.h"
 
-const double POS_MIN = 540;
+const double POS_MIN = 580;
 const double POS_MILL = 1500;
-const double POS_MAX = 2460;
+const double POS_MAX = 2420;
 const int GUN_PITCH_MAX = 400;
 const int GUN_PITCH_MIN = -50;
 
@@ -32,9 +32,9 @@ const double ANGLE_5 = 3080;
 const double ANGLE_6 = 3600;
 
 // RC pwm 信号
-const byte PWM_PIN = 4;
-const byte gun_PIN = 5;
-const byte gupitch_PIN = 6;
+const byte PWM_PIN = 5;
+const byte gun_PIN = 6;
+const byte gupitch_PIN = 7;
 // ttl 数据
 const byte soft_rx_PIN = 2;
 const byte soft_tx_PIN = 3;
@@ -61,7 +61,7 @@ const double moveangle = 10; // 0.035 no log
 #else
 double moveangle = 10;
 #endif
-const double moveipos = moveangle * 1.05;
+const double moveipos = moveangle;
 
 ////////////////////////////////
 
@@ -94,9 +94,9 @@ DATA(char, other_start, '2') // 其他状态+
 void setup()
 {
   delay(500);
-  Serial1.begin(115200);
-  SoftSerial.begin(115200);
-  // when pin D2 goes high, call the rising function
+  _println_int();
+  Serial.begin(115200);
+  //  when pin D2 goes high, call the rising function
   REGISTERED_FUNC(0, PWM_PIN);
   REGISTERED_FUNC(1, gun_PIN);
   REGISTERED_FUNC(2, gupitch_PIN);
@@ -116,9 +116,9 @@ void setup()
 void loop()
 {
   _START_LOOP
-  load_node_data();
-  load_main_gun();
   TEXT_FUNC();
+  // load_node_data();
+  load_main_gun();
   sendDataPwm();
   _END_LOOP
 }
@@ -255,7 +255,7 @@ void sendDataPwm()
     strcat(m_strdata, strTempdata);
   }
   _println_log(m_strdata);
-  SoftSerial.println(m_strdata);
+  Serial.println(m_strdata);
   m_angleChangeBit = 0;
 }
 
@@ -447,11 +447,11 @@ void uart_command_rev()
 
 void func(double angle, byte i, byte a)
 {
-  _print_log("func ");
-  _print_log(angle);
+  //_print_log("func ");
+  //_print_log(angle);
   m_anglePitch[i] = int(angle / 10) * 10;
-  _print_log(" func/10 ");
-  _print_log(m_anglePitch[i]);
+  //_print_log(" func/10 ");
+  //_print_log(m_anglePitch[i]);
   uint32_t pospitch = 0;
   if (angle < 0 && angle >= GUN_PITCH_MIN)
   {
@@ -469,15 +469,15 @@ void func(double angle, byte i, byte a)
   {
     int index = angle / 50 + 1;
     pospitch = mapdouble(angle, GUN_PITCH_MIN, GUN_PITCH_MAX, m_angle_value[i][index], m_angle_value[i][index + 1]);
-    _print_log(" index ");
-    _print_log(index);
+    //_print_log(" index ");
+    //_print_log(index);
   }
 
-  _print_log(" pospitch ");
-  _print_log(pospitch);
+  //_print_log(" pospitch ");
+  // _print_log(pospitch);
   controlServoDelay(a, pospitch, 10);
-  _print_log(" m_anglePos ");
-  _println_log(m_anglePos[a]);
+  // _print_log(" m_anglePos ");
+  //_println_log(m_anglePos[a]);
 };
 
 void funcasync(double angle, byte i, byte a, unsigned long timer)
@@ -635,18 +635,20 @@ void load_start()
 
 void fallingfuc()
 {
-  attachInterrupt(13, risingfuc, CHANGE);
+  attachInterrupt(13, risingfuc, RISING);
   load_start();
+  digitalWrite(13, HIGH);
 }
 
 void risingfuc()
 {
-  attachInterrupt(13, risingfuc, CHANGE);
+  attachInterrupt(13, fallingfuc, FALLING);
   load_start();
+  digitalWrite(13, LOW);
 }
 
 void attachFunc()
 {
   pinMode(13, INPUT_PULLUP);
-  attachInterrupt(13, risingfuc, CHANGE);
+  attachInterrupt(13, risingfuc, RISING);
 }
