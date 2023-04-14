@@ -17,6 +17,11 @@
 #include <SoftwareSerial.h>
 #include "defineData.h"
 
+#define GREEN_LED A5
+#define SEARCH_LED A6
+#define HALL_LED 24
+#define WARN_LED A7
+
 const double POS_MIN = 580;
 const double POS_MILL = 1500;
 const double POS_MAX = 2420;
@@ -87,22 +92,27 @@ RISING_FUNC(1)
 FALLING_FUNC(1)
 RISING_FUNC(2)
 FALLING_FUNC(2)
-DATA(char, start, '3')       // 0 左 1 右 2 停 3 中
-DATA(uint32_t, pitch, 1500)  // 俯仰
-DATA(char, other_start, '2') // 其他状态+
+DATA(char, start, '3')      // 0 左 1 右 2 停 3 中
+DATA(uint32_t, pitch, 1500) // 俯仰
+DATA(int, other_start, 0)   // 其他状态+
+DATA(uint32_t, led, 0);
 
 void setup()
 {
   delay(500);
   _println_int();
-  Serial.begin(115200);
-  //  when pin D2 goes high, call the rising function
+  Serial1.begin(115200);
+  //   when pin D2 goes high, call the rising function
   REGISTERED_FUNC(0, PWM_PIN);
   REGISTERED_FUNC(1, gun_PIN);
   REGISTERED_FUNC(2, gupitch_PIN);
   attachFunc();
-  digitalWrite(13, LOW);
+
   pinMode(led_PIN, OUTPUT);
+  pinMode(HALL_LED, OUTPUT);
+  pinMode(GREEN_LED, OUTPUT);
+  pinMode(SEARCH_LED, OUTPUT);
+  pinMode(WARN_LED, OUTPUT);
 
   for (int i = 0; i < 32; i++)
     m_anglePos[i] = POS_MILL;
@@ -118,6 +128,7 @@ void loop()
   _START_LOOP
   TEXT_FUNC();
   // load_node_data();
+  loadled();
   load_main_gun();
   sendDataPwm();
   _END_LOOP
@@ -130,10 +141,10 @@ void TEXT_FUNC()
   // _println_log(get_start());
 
   // _print_log("get_pitch:");
-  // _println_log(get_pitch());
+  // (get_pitch());_println_log
 
   // _print_log("get_other_start:");
-  // _println_log(get_other_start());
+  _println_log(get_other_start());
 
   // _print_log("pwm_value0:");
   // _print_log(pwm_value[0]);
@@ -163,9 +174,20 @@ void TEXT_FUNC()
   // }
 
   //  gun_pitch('a',GUN_PITCH_MIN, false);
+  // digitalWrite(24, HIGH); // 走廊灯
+  // digitalWrite(A5, HIGH);// 安全灯
+
 #else
 
 #endif
+}
+
+void loadled()
+{
+  digitalWrite(GREEN_LED, bitRead(get_led(), 0) ? HIGH : LOW);
+  digitalWrite(WARN_LED, bitRead(get_led(), 1) ? HIGH : LOW);
+  digitalWrite(HALL_LED, bitRead(get_led(), 2) ? HIGH : LOW);
+  digitalWrite(SEARCH_LED, bitRead(get_led(), 3) ? HIGH : LOW);
 }
 
 void controlServoFront(double Fpos, uint8_t bitF = 0b11)
@@ -255,7 +277,7 @@ void sendDataPwm()
     strcat(m_strdata, strTempdata);
   }
   _println_log(m_strdata);
-  Serial.println(m_strdata);
+  Serial1.println(m_strdata);
   m_angleChangeBit = 0;
 }
 
@@ -621,15 +643,61 @@ void load_start()
   // 其他功能
   if (pwm_value[2] > LOW_GRADE_1 && pwm_value[2] < LOW_GRADE_2)
   {
-    set_other_start('0');
+    int ledstart = get_led();
+    if (bitRead(ledstart, 5) != 0x1)
+    {
+      switch (get_other_start())
+      {
+      case 0:
+        bitWrite(ledstart, 0, 1);
+        set_other_start(get_other_start() + 1);
+        break;
+      case 1:
+        bitWrite(ledstart, 0, 0);
+        bitWrite(ledstart, 1, 1);
+        set_other_start(get_other_start() + 1);
+        break;
+      case 2:
+        bitWrite(ledstart, 1, 0);
+        bitWrite(ledstart, 2, 1);
+        set_other_start(get_other_start() + 1);
+        break;
+      case 3:
+        bitWrite(ledstart, 0, 1);
+        set_other_start(get_other_start() + 1);
+        break;
+      case 4:
+        bitWrite(ledstart, 3, 1);
+        set_other_start(get_other_start() + 1);
+        break;
+      default:
+        set_other_start(0);
+        ledstart = 0;
+        break;
+      }
+    }
+
+    bitSet(ledstart, 5);
+    set_led(ledstart);
   }
   else if (pwm_value[2] > HIGH_GRADE_1 && pwm_value[2] < HIGH_GRADE_2)
   {
-    set_other_start('1');
+    set_other_start(-1);
+    set_led(0);
+    if ((millis() % 1000) > 500)
+      set_led(0B10);
   }
   else if (pwm_value[2] > MID_GRADE_1 && pwm_value[2] < MID_GRADE_2)
   {
-    set_other_start('2');
+    if (get_other_start() < 0)
+    {
+      set_led(0);
+      set_other_start(0);
+    }
+
+    int ledstart = get_led();
+    bitWrite(ledstart, 5, 0);
+    set_led(ledstart);
   }
 }
 
@@ -651,4 +719,5 @@ void attachFunc()
 {
   pinMode(13, INPUT_PULLUP);
   attachInterrupt(13, risingfuc, RISING);
+  digitalWrite(13, LOW);
 }
